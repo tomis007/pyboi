@@ -12,11 +12,24 @@ class Memory:
     ----------
     membanks : MemBank()
         represents the following areas of memory
-        0x0 - 0xdfff
+        0x0000 - 0x7fff : ROMBANKS
+        0x8000 - 0xdfff : RAM + RAM banks
+    oam : bytearray
+        sprite attribute table
+        0xfe00 - 0xfe9f
+    ioports : bytearray
+        0xff00 - 0xff7f
+        I/O ports
+    hram : bytearray
+        0xff80 - 0xfffe 
+        high ram
 
     """
     def __init__(self):
         self.membanks = None
+        self.oam = bytearray(0xa0)
+        self.ioports = bytearray(0x80)
+        self.hram = bytearray(0x80)
 
     def load_rom(self, rom):
         """
@@ -36,7 +49,7 @@ class Memory:
 
         """
         if not os.path.isfile(rom):
-            log.error('rom file can not be opened')
+            log.critical('rom file can not be opened')
             return False
         with open(rom, 'rb') as f:
             # this puts entire rom in RAM, but
@@ -56,12 +69,23 @@ class Memory:
 
         """
         if address < 0:
-            log.critical('negative address read!')
-        elif address < 0x8000:
+            log.error('negative address read!')
+        elif address < 0xdfff:
             return self.membanks.read(address)
 
+    def write(self, byte, address):
+        """
+        Write a byte to memory.
 
+        ...
+        Parameters
+        ----------
+        byte : int
+            byte to write
+        address : int
+            address to write to
 
-    def load_save(self, save_name):
-        print("loading save!")
+        """
+        pass
+
     

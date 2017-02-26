@@ -43,7 +43,7 @@ class Z80():
     ...
     Attributes
     ----------
-    registers : list of ints
+    reg : list of ints
         registers A-F in the z80 cpu
     pc : int
         program counter
@@ -61,7 +61,7 @@ class Z80():
         Refer to Z80 class documentation for attribute info
 
         """
-        self.registers = [0 for _ in range(8)]
+        self.reg = [0 for _ in range(8)]
         self.pc = 0
         self.sp = 0
 
@@ -81,7 +81,7 @@ class Z80():
         -------
         Human readable error message, or None on success
         """
-        pickledregisters = pickle.dumps(self.registers)
+        pickledregisters = pickle.dumps(self.reg)
         cpu_state = CpuState(savename=name, stack_ptr=self.sp,
                              program_ctr=self.pc,
                              gbregisters=pickledregisters)
