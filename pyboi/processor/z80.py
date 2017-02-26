@@ -1,6 +1,6 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, PickleType
-from base import Base
+from ..base import Base
 import pickle
 
 

@@ -1,3 +1,8 @@
+import os.path
+import logging
+from .membanks import MemBanks
+log = logging.getLogger(name='memory')
+
 class Memory:
     """
     Represents the memory of the GB.
@@ -25,10 +30,37 @@ class Memory:
 
         Returns
         -------
-        Human readable error message, or None on success
+        boolean
+            False on failure, or True on success
+        NOTE: Logs an appropriate error on Failure
+
         """
-        print(rom)
-        print("loading rom")
+        if not os.path.isfile(rom):
+            log.error('rom file can not be opened')
+            return False
+        with open(rom, 'rb') as f:
+            # this puts entire rom in RAM, but
+            # roms are quite small
+            self.membanks = MemBanks(bytearray(f.read()))
+        return True
+
+    def read(self, address):
+        """
+        Read a byte from memory
+
+        ...
+        Parameters
+        ----------
+        address : integer
+            to read
+
+        """
+        if address < 0:
+            log.critical('negative address read!')
+        elif address < 0x8000:
+            return self.membanks.read(address)
+
+
 
     def load_save(self, save_name):
         print("loading save!")
