@@ -1,6 +1,7 @@
 import os.path
 import logging
 from .membanks import MemBanks
+logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(name='memory')
 
 class Memory:
@@ -56,6 +57,8 @@ class Memory:
             # this puts entire rom in RAM, but
             # roms are quite small
             self.membanks = MemBanks(bytearray(f.read()))
+            print('LOADING!')
+            log.debug('loaded membank')
         return True
 
     def read(self, address):
@@ -87,6 +90,23 @@ class Memory:
             return self.ioports[address - 0xff80]
         elif address < 0xffff:
             return self.hram[address - 0xff80]
+
+    def read_word(self, address):
+        """
+        Reads two bytes (a word) from memory.
+
+        ...
+        Parameters
+        ----------
+        address : int
+            to read from
+
+        Returns
+        -------
+        int 
+            value of memory at address (two bytes)
+        """
+        return (self.read(address) << 8) | self.read(address + 1)
 
     def write(self, byte, address):
         """
