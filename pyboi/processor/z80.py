@@ -230,7 +230,7 @@ class Z80():
             0x9b: lambda: self.sub_a_n(self.E, sub_carry=True),
             0x9c: lambda: self.sub_a_n(self.H, sub_carry=True),
             0x9d: lambda: self.sub_a_n(self.L, sub_carry=True),
-            0x9e: lambda: self.sub_a_n(self.HL, sub_carry=True),,
+            0x9e: lambda: self.sub_a_n(self.HL, sub_carry=True),
             0xb7: lambda: self.or_n(self.A, exclusive_or=False),
             0xb0: lambda: self.or_n(self.B, exclusive_or=False),
             0xb1: lambda: self.or_n(self.C, exclusive_or=False),
