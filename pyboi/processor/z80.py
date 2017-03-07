@@ -230,7 +230,25 @@ class Z80():
             0x9b: lambda: self.sub_a_n(self.E, sub_carry=True),
             0x9c: lambda: self.sub_a_n(self.H, sub_carry=True),
             0x9d: lambda: self.sub_a_n(self.L, sub_carry=True),
-            0x9e: lambda: self.sub_a_n(self.HL, sub_carry=True)
+            0x9e: lambda: self.sub_a_n(self.HL, sub_carry=True),,
+            0xb7: lambda: self.or_n(self.A, exclusive_or=False),
+            0xb0: lambda: self.or_n(self.B, exclusive_or=False),
+            0xb1: lambda: self.or_n(self.C, exclusive_or=False),
+            0xb2: lambda: self.or_n(self.D, exclusive_or=False),
+            0xb3: lambda: self.or_n(self.E, exclusive_or=False),
+            0xb4: lambda: self.or_n(self.H, exclusive_or=False),
+            0xb5: lambda: self.or_n(self.L, exclusive_or=False),
+            0xb6: lambda: self.or_n(self.HL, exclusive_or=False), 
+            0xf6: lambda: self.or_n(self.N, exclusive_or=False),
+            0xaf: lambda: self.or_n(self.A, exclusive_or=True),
+            0xa8: lambda: self.or_n(self.B, exclusive_or=True),
+            0xa9: lambda: self.or_n(self.C, exclusive_or=True),
+            0xaa: lambda: self.or_n(self.D, exclusive_or=True),
+            0xab: lambda: self.or_n(self.E, exclusive_or=True),
+            0xac: lambda: self.or_n(self.H, exclusive_or=True),
+            0xad: lambda: self.or_n(self.L, exclusive_or=True),
+            0xae: lambda: self.or_n(self.HL, exclusive_or=True),
+            0xee: lambda: self.or_n(self.N, exclusive_or=True)
         }
 
     def save_state(self, name, session):
@@ -742,8 +760,72 @@ class Z80():
 
         return 8 if src == self.N or src == self.HL else 4
 
+    def and_n(self, src):
+        """
+        Logically AND n with A, result in A
+        Flags:
+        Z - Set if result is 0
+        N/C - Reset
+        H - Set
 
+        Parameters
+        ----------
+        src
+            source A-L, (HL), or n
+        Returns
+        -------
+        int
+            number of cycles elapsed
+        """
+        a_reg = self.reg[self.A]
+        if src == self.N:
+            val = self.mem.read(self.pc)
+            self.pc += 1
+        elif src == self.HL:
+            val = self.mem.read(self.get_reg(self.H, self.L))
+        else: #src is index of A-L
+            val = self.reg[src]
+        self.reg[self.A] = val & a_reg & 0xff
 
+        self.reset_flags()
+        if self.reg[self.A] == 0:
+            self.set_flag(self.flags.Z)
+        self.set_flag(self.flags.H)
+
+        return 8 if src == self.N or src == self.HL else 4
+
+    def or_n(self, src, exclusive_or=False):
+        """
+        Logically OR or XOR n with A, result in A.
+        Flags:
+        Z - Set if 0
+        N/H/C - Reset
+
+        Parameters
+        ----------
+        src
+            source A-L, (HL), or n
+        exclusive_or
+            if True uses exclusive OR not OR
+        Returns
+        -------
+        int 
+            number of cycles elapsed
+        """
+        a_reg = self.reg[self.A]
+        if src == self.N:
+            val = self.mem.read(self.pc)
+            pc += 1
+        elif src == self.HL:
+            val = self.mem.read(self.get_reg(self.H, self.L))
+        else: # src is index of A-L
+            val = self.reg[src]
+
+        self.reg[self.A] = (a_reg ^ val) if exclusive_or else (a_reg | val)
+        self.reg[self.A] &= 0xff
+        self.reset_flags()
+        if self.reg[self.A] == 0:
+            self.set_flag(self.flags.Z)
 
 
 
