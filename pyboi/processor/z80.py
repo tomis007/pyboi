@@ -82,13 +82,14 @@ class Z80():
         self.L = 7
         # register enums
         self.reg_pairs = Enum('RegPairs', 'HL BC DE AF')
-        self.load_vals = Enum('ImmediateByte', 'N NN')
+        self.load_vals = Enum('ImmediateByte', 'N NN SP')
         self.HL = self.reg_pairs.HL
         self.BC = self.reg_pairs.BC
         self.DE = self.reg_pairs.DE
         self.AF = self.reg_pairs.AF
         self.N = self.load_vals.N
         self.NN = self.load_vals.NN
+        self.SP = self.load_vals.SP
         self.flags = Enum('Flags', 'Z N H C')
         #pc/sp
         self.pc = 0x100
@@ -248,7 +249,55 @@ class Z80():
             0xac: lambda: self.or_n(self.H, exclusive_or=True),
             0xad: lambda: self.or_n(self.L, exclusive_or=True),
             0xae: lambda: self.or_n(self.HL, exclusive_or=True),
-            0xee: lambda: self.or_n(self.N, exclusive_or=True)
+            0xee: lambda: self.or_n(self.N, exclusive_or=True),
+            0xbf: lambda: self.cp_n(self.A),
+            0xb8: lambda: self.cp_n(self.B),
+            0xb9: lambda: self.cp_n(self.C),
+            0xba: lambda: self.cp_n(self.D),
+            0xbb: lambda: self.cp_n(self.E),
+            0xbc: lambda: self.cp_n(self.F),
+            0xbd: lambda: self.cp_n(self.HL),
+            0xfe: lambda: self.cp_n(self.N),
+            0x3c: lambda: self.inc_n(self.A),
+            0x04: lambda: self.inc_n(self.B),
+            0x0c: lambda: self.inc_n(self.C),
+            0x14: lambda: self.inc_n(self.D),
+            0x1c: lambda: self.inc_n(self.E),
+            0x24: lambda: self.inc_n(self.H),
+            0x2c: lambda: self.inc_n(self.L),
+            0x34: lambda: self.inc_n(self.HL),
+            0x3d: lambda: self.dec_n(self.A),
+            0x05: lambda: self.dec_n(self.B),
+            0x0d: lambda: self.dec_n(self.C),
+            0x15: lambda: self.dec_n(self.D),
+            0x1d: lambda: self.dec_n(self.E),
+            0x25: lambda: self.dec_n(self.H),
+            0x2d: lambda: self.dec_n(self.L),
+            0x35: lambda: self.dec_n(self.HL),
+            0x09: lambda: self.add_hl(self.B, self.C, add_sp=False),
+            0x19: lambda: self.add_hl(self.D, self.E, add_sp=False),
+            0x29: lambda: self.add_hl(self.H, self.L, add_sp=False),
+            0x39: lambda: self.add_hl(self.B, self.C, add_sp=True),
+            0xe8: lambda: self.add_sp_n(),
+            0x03: lambda: self.inc_nn(self.B, self.C, inc_sp=False),
+            0x13: lambda: self.inc_nn(self.D, self.E, inc_sp=False),
+            0x23: lambda: self.inc_nn(self.H, self.L, inc_sp=False),
+            0x33: lambda: self.inc_nn(self.B, self.C, inc_sp=True),
+            0x0b: lambda: self.dec_nn(self.B, self.C, dec_sp=False),
+            0x1b: lambda: self.dec_nn(self.D, self.E, dec_sp=False),
+            0x2b: lambda: self.dec_nn(self.H, self.L, dec_sp=False),
+            0x3b: lambda: self.dec_nn(self.B, self.C, dec_sp=True),
+            0xc3: lambda: self.jump_nn(),
+            0xc2: lambda: self.jump_cc(False, self.flags.Z, immmediate_jump=False),
+            0xca: lambda: self.jump_cc(True, self.flags.Z, immmediate_jump=False),
+            0xd2: lambda: self.jump_cc(False, self.flags.C, immmediate_jump=False),
+            0xda: lambda: self.jump_cc(True, self.flags.C, immmediate_jump=False),
+            0xe9: lambda: self.jump_hl(),
+            0x18: lambda: self.jump_n(),
+            0x20: lambda: self.jump_cc(False, self.flags.Z, immmediate_jump=True),
+            0x28: lambda: self.jump_cc(True, self.flags.Z, immmediate_jump=True),
+            0x30: lambda: self.jump_cc(False, self.flags.C, immmediate_jump=True),
+            0x38: lambda: self.jump_cc(True, self.flags.C, immmediate_jump=True)
         }
 
     def save_state(self, name, session):
@@ -291,6 +340,7 @@ class Z80():
 
         """
         opcode = self.mem.read(self.pc)
+        self.pc += 1
         try:
             log.debug('executing: %s' % hex(opcode))
             cycles = self.opcodes[opcode]()
@@ -708,7 +758,7 @@ class Z80():
             val = self.mem.read(self.get_reg(self.H, self.L))
         else: #src is index of A-L
             val = self.reg[src]
-        carry_bit = 1 if add_carry and flag_set(self.flags.C) else 0
+        carry_bit = 1 if add_carry and self.flag_set(self.flags.C) else 0
         
         self.reg[self.A] = (a_reg + carry_bit + val) & 0xff
         self.reset_flags()
@@ -747,7 +797,7 @@ class Z80():
             val = self.mem.read(self.get_reg(self.H, self.L))
         else: #src is index of A-L
             val = self.reg[src]
-        carry_bit = 1 if sub_carry and flag_set(self.flags.C) else 0
+        carry_bit = 1 if sub_carry and self.flag_set(self.flags.C) else 0
 
         self.reg[self.A] = (a_reg - val - carry_bit) & 0xff
         self.reset_flags()
@@ -827,6 +877,273 @@ class Z80():
         if self.reg[self.A] == 0:
             self.set_flag(self.flags.Z)
 
+    def cp_n(self, src):
+        """
+        Compare A with n (A - n subtraction but results arent saved).
+        Flags:
+        Z - Set if 0
+        N - Set
+        H - Set if no borrow from bit 4
+        C - Set if no borrow (if A is less than n)
+
+        Parameters
+        ----------
+        src
+            A-L, (HL), N
+        Returns
+        -------
+        int
+            number of clock cycles
+        """
+        a_reg = self.reg[self.A]
+        if src == self.N:
+            val = self.mem.read(self.pc)
+            self.pc += 1
+        elif src == self.HL:
+            val = self.mem.read(self.get_reg(self.H, self.L))
+        else: # src is index
+            val = self.reg[src]
+
+        self.reset_flags()
+        self.set_flag(self.flags.N)
+        if val == a_reg:
+            self.set_flag(self.flags.Z)
+        if (a_reg & 0xf) < (val & 0xf):
+            self.set_flag(self.flags.H)
+        if a_reg < val:
+            self.set_flag(self.flags.C)
+
+        return 8 if src == self.N or src == self.HL else 4
+
+    def inc_n(self, src):
+        """
+        Increment register n
+        Flags:
+        Z - Set if 0
+        N - Reset
+        H - Set if carry from bit 3
+        C - Not affected
+
+        Parameters
+        ----------
+        src
+            A-L, (HL)
+        Returns
+        -------
+        int
+            number of cycles
+        """
+        if src == self.HL:
+            val = self.mem.read(self.get_reg(self.H, self.L))
+            self.mem.write(val + 1, self.get_reg(self.H, self.L))
+        else: # src is index
+            val = (self.reg[src] + 1) & 0xff
+            self.reg[src] = val
+
+        self.set_flag(self.flags.Z) if val == 0 else self.reset_flag(self.flags.Z)
+        self.reset_flag(self.flags.N)
+        self.set_flag(self.flags.H) if val & 0xf == 0xf else self.reset_flag(self.flags.H)
+
+        return 12 if src == self.HL else 4
+
+    def dec_n(self, src):
+        """
+        Decrement register n.
+        Flags:
+        Z - Set if 0
+        N - Set
+        H - Set if no borrow from bit 4
+        C - Not affected
+
+        Parameters
+        ----------
+        src
+            A-L, (HL)
+        Returns
+        -------
+        int
+            number of cycles
+        """
+        if src == self.HL:
+            val = self.mem.read(self.get_reg(self.H, self.L))
+            self.mem.write(val - 1, self.get_reg(self.H, self.L))
+        else: # src is index
+            val = (self.reg[src] - 1) & 0xff
+            self.reg[src] = val
+
+        self.set_flag(self.flags.Z) if val == 0 \
+                                    else self.reset_flag(self.flags.Z)
+        self.reset_flag(self.flags.N)
+        self.set_flag(self.flags.H) if (val + 1) & 0xf0 != 0xf0 & val \
+                                    else self.reset_flag(self.flags.H)
+
+        return 12 if src == self.HL else 4
+
+    def add_hl(self, r1, r2, add_sp=False):
+        """
+        Add n to HL.
+        Flags:
+        Z - Not affected
+        N - Reset
+        H - Set if carry from bit 11
+        C - Set if carry from bit 15
+
+        Parameters
+        ----------
+        r1, r2
+            register index for HL, BC, DE
+        add_sp : bool
+            if true addes to sp not register pair
+        Returns
+        -------
+        int
+            cycles taken
+        """
+        hl = self.get_reg(self.H, self.L)
+        val = self.sp if add_sp else self.get_reg(r1, r2)
+        self.set_reg(self.H, self.L, (val  + hl) & 0xffff)
+
+        self.reset_flag(self.flags.N)
+        if (val & 0xfff) + (hl & 0xfff) > 0xfff:
+            self.set_flag(self.flags.H)
+        else:
+            self.reset_flag(self.flags.H)
+        if val + hl > 0xffff:
+            self.set_flag(self.flags.C)
+        else:
+            self.reset_flag(self.flags.C)
+
+        return 8
+
+    def add_sp_n(self):
+        """
+        Adds an immediate signed byte to sp.
+        Flags:
+        Z, N - Reset
+        H, C - Set/Reset according to operation 
+        NOTE: Specifications vague if this is 8 or 
+        16 bit flag addition behavior
+
+        Returns
+        -------
+        int
+            cycles taken
+        """
+        # read as a signed byte
+        val = c_int8(self.mem.read(self.pc)).value
+        self.pc += 1
+        self.sp += val
+        self.sp &= 0xffff
+
+        self.reset_flags()
+        if (self.sp & 0xf) + (val & 0xf) > 0xf:
+            self.set_flag(self.flags.H)
+        if (self.sp & 0xff) + (val & 0xff) > 0xff:
+            self.set_flag(self.flags.C)
+        return 16
+
+    def inc_nn(self, r1, r2, inc_sp=False):
+        """
+        Increment register pair r1r2.
+
+        Parameters
+        ----------
+        r1r2
+            register pair r1r2
+        inc_sp : Boolean
+            if True increments SP not r1r2
+        Returns
+        -------
+        int
+            clock cycles taken
+        """
+        if inc_sp:
+            self.sp += 1
+            self.sp &= 0xffff
+        else:
+            val = self.get_reg(r1, r2)
+            self.set_reg(r1, r2, (val + 1) & 0xffff)
+        return 8
+
+    def dec_nn(self, r1, r2, dec_sp=False):
+        """
+        Decrement register pair r1r2
+
+        Parameters
+        ----------
+        r1r2
+            register pair r1r2
+        dec_sp : boolean
+            if True decrements SP not r1r2
+        Returns
+        -------
+        int
+            clock cycles taken
+        """
+        if dec_sp:
+            self.sp -= 1
+            self.sp &= 0xffff
+        else:
+            val = self.get_reg(r1, r2)
+            self.set_reg(r1, r2, (val - 1) & 0xffff)
+        return 8
+
+    def jump_nn(self):
+        """
+        Jump to nn.
+        """
+        val = self.mem.read_word(self.pc)
+        self.pc = val
+        return 12
+
+    def jump_cc(self, isSet, flag, immmediate_jump=False):
+        """
+        Jump to address n if flag and isSet match
+        
+        Parameters
+        ----------
+        isSet : bool
+            
+        Returns
+        -------
+        int
+            number of cycles
+        """
+        if self.flag_set(flag) == isSet:
+            return self.jump_n() if immmediate_jump else self.jump_nn()
+        else:
+            self.pc += 2
+            return 12
+
+    def jump_hl(self):
+        """
+        Jump to address in HL
+
+        Returns
+        -------
+        int
+            cycles taken
+        """
+        self.pc = self.get_reg(self.H, self.L)
+        return 4
+
+    def jump_n(self):
+        """
+        Add n to current address and jump to it.
+
+        Returns
+        -------
+        int 
+            cycles taken
+        """
+        val = c_int8(self.mem.read(self.pc)).value
+        self.pc += 1
+        self.pc += val
+        return 8
+
+            
+
+        
 
 
     def reset_flags(self):
