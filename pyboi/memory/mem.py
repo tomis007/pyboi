@@ -106,7 +106,7 @@ class Memory:
         int 
             value of memory at address (two bytes)
         """
-        return (self.read(address) << 8) | self.read(address + 1)
+        return (self.read(address + 1) << 8) | self.read(address)
 
     def write(self, byte, address):
         """
