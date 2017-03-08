@@ -163,7 +163,7 @@ class Z80():
             0x0a: lambda: self.load_a(self.BC),
             0x1a: lambda: self.load_a(self.DE),
             0xfa: lambda: self.load_a(self.NN),
-            0x3e: lambda: self.load_a(self.n),
+            0x3e: lambda: self.load_a(self.N),
             0x7f: lambda: self.write_a(self.A),
             0x47: lambda: self.write_a(self.B),
             0x4f: lambda: self.write_a(self.C),
@@ -344,7 +344,6 @@ class Z80():
         try:
             log.debug('executing: %s' % hex(opcode))
             cycles = self.opcodes[opcode]()
-            self.pc += 1
         except KeyError:
             log.critical('INVALID OPCODE EXECUTION ATTEMPT!')
             cycles = 0
@@ -557,7 +556,7 @@ class Z80():
         elif dest == self.HL:
             r1 = self.H
             r2 = self.L
-        self.set(r1, r2, word)
+        self.set_reg(r1, r2, word)
         return 12
 
     def ld_sp_hl(self):
