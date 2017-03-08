@@ -84,7 +84,7 @@ class Memory:
             return self.membanks.read(address - 0x1e00) #echo ram
         elif address < 0xfea0:
             return self.oam[address - 0xfe00]
-        elif address < ff00:
+        elif address < 0xff00:
             log.error('reading from invalid address')
         elif address < 0xff80:
             return self.ioports[address - 0xff80]
@@ -129,7 +129,7 @@ class Memory:
             self.membanks.write(byte, address - 0x1e00) #echo ram
         elif address < 0xfea0:
             self.oam[address - 0xfe00] = byte & 0xff
-        elif address < ff00:
+        elif address < 0xff00:
             log.error('writing to invalid address')
         elif address < 0xff80:
             self._iowrite(byte, address)
