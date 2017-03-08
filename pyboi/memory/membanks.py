@@ -62,7 +62,6 @@ class MemBanks:
         address : int
             to write to
         """
-        print(hex(address))
         if address < 0x8000:
             self.rombank.write_byte(byte, address)
         elif address < 0xe000:
