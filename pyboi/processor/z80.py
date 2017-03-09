@@ -297,7 +297,15 @@ class Z80():
             0x20: lambda: self.jump_cc(False, self.flags.Z, immmediate_jump=True),
             0x28: lambda: self.jump_cc(True, self.flags.Z, immmediate_jump=True),
             0x30: lambda: self.jump_cc(False, self.flags.C, immmediate_jump=True),
-            0x38: lambda: self.jump_cc(True, self.flags.C, immmediate_jump=True)
+            0x38: lambda: self.jump_cc(True, self.flags.C, immmediate_jump=True),
+            0x27: lambda: self.dec_adjust(),
+            0x2f: lambda: self.complement_a(),
+            0x3f: lambda: self.complement_cf(),
+            0x37: lambda: self.set_cf(),
+            0x07: lambda: self.rotate_l_a_c(),
+            0x17: lambda: self.rotate_l_a(),
+            0x0f: lambda: self.rotate_r_a_c(),
+            0x1f: lambda: self.rotate_r_a() 
         }
 
     def save_state(self, name, session):
@@ -439,10 +447,10 @@ class Z80():
             self.mem.write(self.reg[self.A], self.get_reg(self.B, self.C))
             return 8
         elif dest == self.DE:
-            self.mem.write(self.reg[self.A], self.get_reg(self.B, self.C))
+            self.mem.write(self.reg[self.A], self.get_reg(self.D, self.E))
             return 8
         elif dest == self.HL:
-            self.mem.write(self.reg[self.A], self.get_reg(self.B, self.C))
+            self.mem.write(self.reg[self.A], self.get_reg(self.H, self.L))
             return 8
         elif dest == self.NN:
             self.mem.write(self.reg[self.A], self.mem.read_word(self.pc))
@@ -1139,6 +1147,207 @@ class Z80():
         self.pc += 1
         self.pc += val
         return 8
+
+    def dec_adjust(self):
+        """
+        Decimal adjust reg A to a representation of Binary Coded Decimal.
+        Flags
+        Z - Set if A is zero
+        N - Not affected
+        H - Reset
+        C - Set or reset
+        referenced: https://github.com/Dooskington/gamelad
+
+        Returns
+        -------
+        int
+            clock cycles taken
+        """
+        a_reg = self.reg[self.A]
+        if flag_set(self.flags.N):
+            if flag_set(self.flags.H) or a_reg & 0x0f > 0x09:
+                a_reg += 0x06
+            if flag_set(self.flags.C) or a_reg > 0x9f:
+                a_reg += 0x06
+        else:
+            if flag_set(self.flags.H):
+                a_reg = (a_reg - 0x06) & 0xff
+            if flag_set(self.flags.C):
+                a_reg -= 0x60
+        if a_reg & 0x100 == 0x100:
+            self.set_flag(self.flags.C)
+
+        a_reg &= 0xff
+        self.reset_flag(self.flags.H)
+        self.reset_flag(self.flags.Z)
+        if a_reg == 0:
+            self.set_flag(self.flags.Z)
+
+        self.reg[self.A] = a_reg
+        return 4
+
+
+    def complement_a(self):
+        """
+        Complements register A (toggles all bits).
+        Flags
+        N/H - Set
+        C/Z - Not affected
+
+        Returns
+        -------
+        int     
+            number of cycles taken
+        """
+        self.reg[self.A] ^= 0xff
+        self.set_flag(self.flags.N)
+        self.set_flag(self.flags.H)
+        return 4
+
+    def complement_cf(self):
+        """
+        Complements the carry flag (toggles it).
+        Flags
+        Z - Not affected
+        H/N - Reset
+        C - Toggles
+        
+        Returns
+        -------
+        int 
+            cycles taken
+        """
+        if self.flag_set(self.flags.C):
+            self.reset_flag(self.flags.C)
+        else:
+            self.set_flag(self.flags.C)
+        self.reset_flag(self.flags.N)
+        self.reset_flag(self.flags.H)
+        return 4
+
+    def set_cf(self):
+        """
+        Sets the carry flag.
+        Flags
+        Z - Not affected
+        H/N - Reset
+        C - Set
+
+        Returns
+        -------
+        int 
+            cycles taken
+        """
+        self.set_flag(self.flags.C)
+        self.reset_flag(self.flags.H)
+        self.reset_flag(self.flags.N)
+        return 4
+
+    def rotate_l_a_c(self):
+        """
+        Rotates A left, old bit 7 to carry flag.
+
+        Flags
+        Z - Set if 0 NOTE??? RESET??
+        N/H - Reset
+        C - Contains old bit 7 data
+
+        Returns
+        -------
+        int 
+            cycles taken
+        """
+        a_reg = self.reg[self.A]
+        msb = (a_reg & 0x80) >> 7
+
+        a_reg <<= 1
+        a_reg |= msb
+
+        self.reset_flags()
+        if msb == 1:
+            self.set_flag(self.flags.C)
+        self.reg[self.A] = a_reg & 0xff
+        return 4
+
+    def rotate_l_a(self):
+        """
+        Rotate A left through carry flag.
+        Flags
+        Z/N/H - Reset
+        C - Old bit 7 data
+
+        Returns
+        -------
+        int 
+            cycles taken
+        """
+        a_reg = self.reg[self.A]
+        a_reg <<= 1
+        if self.flag_set(self.flags.C):
+            a_reg |= 1 # set lsb to C
+        self.reset_flags()
+        if a_reg & 0x100 == 0x100:
+            self.set_flag(self.flags.C)
+
+        self.reg[self.A] = a_reg & 0xff
+        return 4
+
+    def rotate_r_a_c(self):
+        """
+        Rotates A right, old bit 0 to carry flag.
+
+        Flags:
+        C - Old bit 0
+        Z/H/N - Reset
+
+        Returns
+        -------
+        int
+            clock cycles taken
+        """
+        a_reg = self.reg[self.A]
+        lsb = a_reg & 0x1
+
+        a_reg >>= 1
+        a_reg |= lsb << 7
+
+        self.reset_flags()
+
+        if lsb == 1:
+            self.set_flag(self.flags.C)
+        self.reg[self.A] = a_reg & 0xff
+        return 4
+
+    def rotate_r_a(self):
+        """
+        Rotate A right through carry flag.
+
+        Flags
+        C - Old bit 0
+        Z/H/N - Reset
+
+        Returns
+        -------
+        int 
+            cycles taken
+        """
+        a_reg = self.reg[self.A]
+        lsb = a_reg & 0x1
+
+        a_reg >>= 1
+        if flag_set(self.flags.C):
+            a_reg |= 0x80
+
+        self.reset_flags()
+        if lsb == 1:
+            self.set_flag(self.flags.C)
+        self.reg[self.A] = a_reg & 0xff
+        return 4
+
+
+        
+
+
 
             
 
