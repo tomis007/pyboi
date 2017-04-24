@@ -18,9 +18,9 @@ class Memory:
     oam : bytearray
         sprite attribute table
         0xfe00 - 0xfe9f
-    ioports : bytearray
+    regio : bytearray
         0xff00 - 0xff7f
-        I/O ports
+        I/O ports + Registers
     hram : bytearray
         0xff80 - 0xfffe 
         high ram
@@ -29,7 +29,7 @@ class Memory:
     def __init__(self):
         self.membanks = None
         self.oam = bytearray(0xa0)
-        self.ioports = bytearray(0x80)
+        self.regio = bytearray(0x80)
         self.hram = bytearray(0x80)
 
     def load_rom(self, rom):
@@ -87,7 +87,7 @@ class Memory:
         elif address < 0xff00:
             log.error('reading from invalid address')
         elif address < 0xff80:
-            return self.ioports[address - 0xff80]
+            return self.regio[address - 0xff80]
         elif address < 0xffff:
             return self.hram[address - 0xff80]
 
@@ -121,6 +121,12 @@ class Memory:
             address to write to
 
         """
+        # for test roms
+        #if address == 0xff01:
+            #log.debug(chr(byte))
+
+        if address == 0xff40:
+            log.debug(byte)
         if address < 0:
             log.error('writing to negative address!')
         elif address < 0xe000:
@@ -132,12 +138,12 @@ class Memory:
         elif address < 0xff00:
             log.error('writing to invalid address')
         elif address < 0xff80:
-            self._iowrite(byte, address)
+            self.reg_write(byte, address)
         elif address < 0xffff:
             self.hram[address - 0xff80] = byte & 0xff
 
     # TODO
-    def _iowrite(self, byte, address):
+    def reg_write(self, byte, address):
         """
         Write a byte to IO Ports and handle register resets
 
@@ -150,6 +156,6 @@ class Memory:
             address to write to
 
         """
-        pass
+        self.regio[address - 0xff00] = byte & 0xff
 
 
