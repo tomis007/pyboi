@@ -1,5 +1,6 @@
 from ..processor.z80 import Z80
 from ..memory.mem import Memory
+from ..gpu.gpu import GPU
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from ..base import Base
@@ -17,13 +18,16 @@ class Pyboi:
         internal memory of the GB
     z80 : Z80 class
         processor of the GB
+    gpu : GPU class
+        renders graphics
     engine : SQLAlchemy engine
         engine for saving the game states in SQLAlchemy's database
 
     """
     def __init__(self):
         self.mem = Memory()
-        self.z80 = Z80()
+        self.z80 = Z80(self.mem)
+        self.gpu = GPU(self.mem)
         self.engine = create_engine('sqlite:///pyboi_saves.db')
         Base.metadata.create_all(self.engine)
     
@@ -52,6 +56,12 @@ class Pyboi:
 
         """
         self.mem.load_rom(rom)
-        for x in range(0x104, 0x134):
-            print(hex(self.mem.read(x)))
+
+
+    def run(self):
+        """ Start execution of the emulator. """
+        for _ in range(44205):
+            cycles = self.z80.execute_opcode()
+            self.gpu.update_graphics(cycles)
+
 
