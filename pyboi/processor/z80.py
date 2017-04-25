@@ -8,7 +8,6 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(name='z80')
 
-
 class CpuState(Base):
     """
     SQLAlchemy base class to save cpustate.
@@ -61,7 +60,6 @@ class Z80():
 
     """
 
-
     def __init__(self, mem):
         """
         __init__ function
@@ -70,6 +68,9 @@ class Z80():
         Refer to Z80 class documentation for attribute info.
 
         """
+
+        self.count = 0
+
         self.reg = [0 for _ in range(8)]
         # register index constants
         self.A = 0
@@ -96,7 +97,8 @@ class Z80():
         self.sp = 0xfffe
         self.mem = mem
         self.opcodes = {
-            0x00: self.NOP,
+            0xf3: lambda: self.disable_interrupts(),
+            0x00: lambda: self.NOP(),
             0x06: lambda: self.ld_byte_n(self.B),
             0x0e: lambda: self.ld_byte_n(self.C),
             0x16: lambda: self.ld_byte_n(self.D),
@@ -189,14 +191,14 @@ class Z80():
             0xf9: lambda: self.ld_sp_hl(),
             0xf8: lambda: self.ldhl_sp(),
             0x08: lambda: self.ld_nn_sp(),
-            0xf5: lambda: self.push_nn(self.AF),
-            0xc5: lambda: self.push_nn(self.BC),
-            0xd5: lambda: self.push_nn(self.DE),
-            0xe5: lambda: self.push_nn(self.HL),
-            0xf1: lambda: self.pop_nn(self.AF),
-            0xc1: lambda: self.pop_nn(self.BC),
-            0xd1: lambda: self.pop_nn(self.DC),
-            0xe1: lambda: self.pop_nn(self.HL),
+            0xf5: lambda: self.push_nn(self.A, self.F),
+            0xc5: lambda: self.push_nn(self.B, self.C),
+            0xd5: lambda: self.push_nn(self.D, self.E),
+            0xe5: lambda: self.push_nn(self.H, self.L),
+            0xf1: lambda: self.pop_nn(self.A, self.F),
+            0xc1: lambda: self.pop_nn(self.B, self.C),
+            0xd1: lambda: self.pop_nn(self.D, self.E),
+            0xe1: lambda: self.pop_nn(self.H, self.L),
             0x87: lambda: self.add_a_n(self.A, add_carry=False),
             0x80: lambda: self.add_a_n(self.B, add_carry=False),
             0x81: lambda: self.add_a_n(self.C, add_carry=False),
@@ -349,11 +351,17 @@ class Z80():
         """
         opcode = self.mem.read(self.pc)
         self.pc += 1
+        self.count += 1 #TODO
         try:
-            log.debug('executing: %s' % hex(opcode))
+            #log.debug('executing: %s' % hex(opcode))
+            #f self.count > 16000:
+            #   print("DEBUG:z80:executing: " + hex(opcode))
             cycles = self.opcodes[opcode]()
+            #f self.count > 16000:
+            #   self.dump_registers()
         except KeyError:
             log.critical('INVALID OPCODE EXECUTION ATTEMPT!')
+            log.critical('OPCODE hex(opcode)' + ' at ' + hex(self.pc))
             cycles = 0
         return cycles
 
@@ -944,12 +952,13 @@ class Z80():
             val = self.mem.read(self.get_reg(self.H, self.L))
             self.mem.write(val + 1, self.get_reg(self.H, self.L))
         else: # src is index
+            old_val = self.reg[src]
             val = (self.reg[src] + 1) & 0xff
             self.reg[src] = val
 
         self.set_flag(self.flags.Z) if val == 0 else self.reset_flag(self.flags.Z)
         self.reset_flag(self.flags.N)
-        self.set_flag(self.flags.H) if val & 0xf == 0xf else self.reset_flag(self.flags.H)
+        self.set_flag(self.flags.H) if old_val & 0xf == 0xf else self.reset_flag(self.flags.H)
 
         return 12 if src == self.HL else 4
 
@@ -980,7 +989,7 @@ class Z80():
 
         self.set_flag(self.flags.Z) if val == 0 \
                                     else self.reset_flag(self.flags.Z)
-        self.reset_flag(self.flags.N)
+        self.set_flag(self.flags.N)
         self.set_flag(self.flags.H) if (val + 1) & 0xf0 != 0xf0 & val \
                                     else self.reset_flag(self.flags.H)
 
@@ -1100,7 +1109,9 @@ class Z80():
         Jump to nn.
         """
         val = self.mem.read_word(self.pc)
+        log.debug("jumped to: " + hex(val))
         self.pc = val
+        log.debug("pc: " + hex(self.pc))
         return 12
 
     def jump_cc(self, isSet, flag, immmediate_jump=False):
@@ -1119,7 +1130,7 @@ class Z80():
         if self.flag_set(flag) == isSet:
             return self.jump_n() if immmediate_jump else self.jump_nn()
         else:
-            self.pc += 2
+            self.pc += 1
             return 12
 
     def jump_hl(self):
@@ -1335,7 +1346,7 @@ class Z80():
         lsb = a_reg & 0x1
 
         a_reg >>= 1
-        if flag_set(self.flags.C):
+        if self.flag_set(self.flags.C):
             a_reg |= 0x80
 
         self.reset_flags()
@@ -1344,15 +1355,31 @@ class Z80():
         self.reg[self.A] = a_reg & 0xff
         return 4
 
-
+    #TODO
+    def disable_interrupts(self):
+        """
+        #TODO
+        """
+        pass
         
 
 
 
             
-
-        
-
+    def dump_registers(self):
+        """
+        Prints the current cpu registers and their values to the screen.
+        """
+        print("A:  ", hex(self.reg[self.A]))
+        print("B:  ", hex(self.reg[self.B]))
+        print("C:  ", hex(self.reg[self.C]))
+        print("D:  ", hex(self.reg[self.D]))       
+        print("E:  ", hex(self.reg[self.E]))
+        print("F:  ", hex(self.reg[self.F]))
+        print("H:  ", hex(self.reg[self.H]))
+        print("L:  ", hex(self.reg[self.L]))
+        print("PC: ", hex(self.pc))
+        print("SP: ", hex(self.sp))
 
     def reset_flags(self):
         """ Resets all Flags to 0.  """
