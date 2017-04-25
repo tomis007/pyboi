@@ -1,4 +1,5 @@
 from .mbc0 import MBC0
+from .mbc1 import MBC1
 from .rambank import RAMBank
 import logging
 log = logging.getLogger(name='membanks')
@@ -12,9 +13,6 @@ class MemBanks:
     ----------
     bank : MemBankController object
         internal MBC in use
-    rambank : RamBank
-        rambanks for the cartridge
-
     """
     def __init__(self, cartridge):
         """
@@ -28,10 +26,14 @@ class MemBanks:
 
         """
         if cartridge[0x147] == 0x0:
-            self.rombank = MBC0(cartridge)
+            self.bank = MBC0(cartridge)
+            log.info("MBC0")
+        elif cartridge[0x147] == 0x1:
+            self.bank = MBC1(cartridge)
+            log.info("MBC1")
         else:
-            log.critical('This MBC has not been implemented yet!')
-        self.rambank = RAMBank(cartridge[0x149])
+            log.critical('MBC NOT IMPLEMENTED')
+            quit() #just stop
 
     def read(self, address):
         """
@@ -43,10 +45,8 @@ class MemBanks:
         addresss : integer
             to read
         """
-        if address < 0x8000:
-            return self.rombank.read_byte(address)
-        elif address < 0xe000:
-            return self.rambank.read_byte(address)
+        if address < 0xe000:
+            return self.bank.read_byte(address)
         else:
             log.error('Invalid read from membanks!')
 
@@ -62,9 +62,7 @@ class MemBanks:
         address : int
             to write to
         """
-        if address < 0x8000:
-            self.rombank.write_byte(byte, address)
-        elif address < 0xe000:
-            self.rambank.write_byte(byte, address)
+        if address < 0xe000:
+            self.bank.write_byte(byte, address)
         else:
             log.error('Invalid write to membanks!')
