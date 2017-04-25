@@ -39,3 +39,10 @@ class MBC0:
         if address < 0x8000 and address >= 0:
             return self.rom[address]
         
+
+    def write_byte(self, byte, address):
+        """
+        Write a byte to mbc0. Does nothing
+        """
+        pass #no registers in MBC0
+
