@@ -57,10 +57,21 @@ class Pyboi:
         """
         self.mem.load_rom(rom)
 
+    def boot(self):
+        """
+        Runs the bios and stops after completed.
+        Requires a rom to be loaded.
+        """
+        self.mem.set_bios_mode(True)
+        for _ in range(10000000):
+            cycles = self.z80.execute_boot_opcode()
+            self.gpu.update_graphics(cycles)
+        self.mem.set_bios_mode(False)
+
 
     def run(self):
         """ Start execution of the emulator. """
-        for _ in range(44205):
+        for _ in range(5200828):
             cycles = self.z80.execute_opcode()
             self.gpu.update_graphics(cycles)
 

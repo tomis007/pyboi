@@ -24,6 +24,9 @@ class Memory:
     hram : bytearray
         0xff80 - 0xfffe 
         high ram
+    bios_mode : bool
+        if true, when accessing memory below 0x100, 
+        reads from bios. defaults to False
 
     """
     def __init__(self):
@@ -31,6 +34,14 @@ class Memory:
         self.oam = bytearray(0xa0)
         self.regio = bytearray(0x80)
         self.hram = bytearray(0x80)
+        self.bios_mode = False #default
+        #requires bios.gb in directory
+        if not os.path.isfile('bios.gb'):
+            log.critical('no bios file')
+            exit()
+        with open('bios.gb', 'rb') as f:
+            self.bios = bytearray(f.read())
+        print(hex(self.bios[0]))
 
     def load_rom(self, rom):
         """
@@ -57,9 +68,33 @@ class Memory:
             # this puts entire rom in RAM, but
             # roms are quite small
             self.membanks = MemBanks(bytearray(f.read()))
-            print('LOADING!')
+            log.info('LOADING: ' + rom)
             log.debug('loaded membank')
         return True
+
+    def read_bios(self, address):
+        """
+        Read a byte from the bios in memory.
+        
+        ...
+        Parameters
+        ----------
+        address : int
+            to read, must be less than 0x100
+        Returns
+        -------
+        int
+            value of memory at address
+        """
+        if address < 0:
+            #log.critical('reading from negative address in bios')
+            return 0
+        elif address < 0x100:
+            return self.bios[address]
+        else:
+            #log.critical('reading from out of bounds address in bios')
+            return 0
+
 
     def read(self, address):
         """
@@ -78,6 +113,8 @@ class Memory:
         """
         if address < 0:
             log.error('negative address read!')
+        elif self.bios_mode:
+            return self.read_bios(address)
         elif address < 0xe000:
             return self.membanks.read(address)
         elif address < 0xfe00:
@@ -86,9 +123,10 @@ class Memory:
             return self.oam[address - 0xfe00]
         elif address < 0xff00:
             log.error('reading from invalid address')
+            log.error(hex(address))
         elif address < 0xff80:
             return self.regio[address - 0xff80]
-        elif address < 0xffff:
+        elif address <= 0xffff:
             return self.hram[address - 0xff80]
 
     def read_word(self, address):
@@ -122,11 +160,11 @@ class Memory:
 
         """
         # for test roms
-        #if address == 0xff01:
-            #log.debug(chr(byte))
-
+        if address == 0xff01:
+            print(chr(byte), end='')
         if address == 0xff40:
-            log.debug(byte)
+            log.debug(hex(byte))
+
         if address < 0:
             log.error('writing to negative address!')
         elif address < 0xe000:
@@ -157,5 +195,18 @@ class Memory:
 
         """
         self.regio[address - 0xff00] = byte & 0xff
+
+    def set_bios_mode(self, val):
+        """
+        Sets read_bios flag in memory to val, if true
+        when memory accessed below 0x100 reads from
+        bios not cartridge.
+
+        Parameters
+        ----------
+        val : bool
+        
+        """
+        self.bios_mode = val
 
 
