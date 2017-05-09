@@ -42,7 +42,7 @@ class CpuState(Base):
 
 class Z80():
     """
-    An implementation of the gameboy's z80 cpu.
+    An implementation of the gameboy's ~z80 (similar) cpu.
 
     ...
     Attributes
@@ -93,10 +93,11 @@ class Z80():
         self.SP = self.load_vals.SP
         self.flags = Enum('Flags', 'Z N H C')
         #pc/sp
-        self.pc = 0x100
-        self.sp = 0xfffe
+        self.pc = 0#0x100
+        self.sp = 0#0xfffe
         self.mem = mem
         self.opcodes = {
+            0xcb: lambda: self.extended_opcode(),
             0xf3: lambda: self.disable_interrupts(),
             0x00: lambda: self.NOP(),
             0x06: lambda: self.ld_byte_n(self.B),
@@ -175,6 +176,7 @@ class Z80():
             0x6f: lambda: self.write_a(self.L),
             0x02: lambda: self.write_a(self.BC),
             0x12: lambda: self.write_a(self.DE),
+            0x77: lambda: self.write_a(self.HL),
             0xea: lambda: self.write_a(self.NN),
             0xf2: lambda: self.load_a_c(store=False),
             0xe2: lambda: self.load_a_c(store=True),
@@ -182,8 +184,8 @@ class Z80():
             0x32: lambda: self.load_a_hl(dec=True, load=False),
             0x2a: lambda: self.load_a_hl(dec=False, load=True),
             0x22: lambda: self.load_a_hl(dec=False, load=False),
-            0xe0: lambda: self.a_n(store=True),
-            0xf0: lambda: self.a_n(store=False),
+            0xe0: lambda: self.a_n(True),
+            0xf0: lambda: self.a_n(False),
             0x01: lambda: self.ld_nn(self.BC, set_sp=False),
             0x11: lambda: self.ld_nn(self.DE, set_sp=False),
             0x21: lambda: self.ld_nn(self.HL, set_sp=False),
@@ -234,6 +236,15 @@ class Z80():
             0x9c: lambda: self.sub_a_n(self.H, sub_carry=True),
             0x9d: lambda: self.sub_a_n(self.L, sub_carry=True),
             0x9e: lambda: self.sub_a_n(self.HL, sub_carry=True),
+            0xa7: lambda: self.and_n(self.A),
+            0xa0: lambda: self.and_n(self.B),
+            0xa1: lambda: self.and_n(self.c),
+            0xa2: lambda: self.and_n(self.D),
+            0xa3: lambda: self.and_n(self.E),
+            0xa4: lambda: self.and_n(self.H),
+            0xa5: lambda: self.and_n(self.L),
+            0xa6: lambda: self.and_n(self.HL),
+            0xe6: lambda: self.and_n(self.N),
             0xb7: lambda: self.or_n(self.A, exclusive_or=False),
             0xb0: lambda: self.or_n(self.B, exclusive_or=False),
             0xb1: lambda: self.or_n(self.C, exclusive_or=False),
@@ -307,7 +318,44 @@ class Z80():
             0x07: lambda: self.rotate_l_a_c(),
             0x17: lambda: self.rotate_l_a(),
             0x0f: lambda: self.rotate_r_a_c(),
-            0x1f: lambda: self.rotate_r_a() 
+            0x1f: lambda: self.rotate_r_a(),
+            0xcd: lambda: self.call(),
+            0xc4: lambda: self.call_cc(self.flags.Z, False),
+            0xcc: lambda: self.call_cc(self.flags.Z, True),
+            0xd4: lambda: self.call_cc(self.flags.C, False),
+            0xdc: lambda: self.call_cc(self.flags.C, True),
+            0xc9: lambda: self.ret(),
+            0xc0: lambda: self.ret_cc(self.flags.N, False),
+            0xc8: lambda: self.ret_cc(self.flags.N, True),
+            0xd0: lambda: self.ret_cc(self.flags.C, False),
+            0xd8: lambda: self.ret_cc(self.flags.C, True),
+            0x10: lambda: self.stop()
+        }
+        self.ext_opcodes = {
+            0x3f: lambda: self.srl_n(self.A, False),
+            0x38: lambda: self.srl_n(self.B, False),
+            0x39: lambda: self.srl_n(self.C, False),
+            0x3a: lambda: self.srl_n(self.D, False),
+            0x3b: lambda: self.srl_n(self.E, False),
+            0x3c: lambda: self.srl_n(self.H, False),
+            0x3d: lambda: self.srl_n(self.L, False),
+            0x3e: lambda: self.srl_n(self.HL, False),
+            0x2f: lambda: self.srl_n(self.A, True),
+            0x28: lambda: self.srl_n(self.B, True),
+            0x29: lambda: self.srl_n(self.C, True),
+            0x2a: lambda: self.srl_n(self.D, True),
+            0x2b: lambda: self.srl_n(self.E, True),
+            0x2c: lambda: self.srl_n(self.H, True),
+            0x2d: lambda: self.srl_n(self.L, True),
+            0x2e: lambda: self.srl_n(self.HL, True),
+            0x1f: lambda: self.rr_n(self.A),
+            0x18: lambda: self.rr_n(self.B),
+            0x19: lambda: self.rr_n(self.C),
+            0x1a: lambda: self.rr_n(self.D),
+            0x1b: lambda: self.rr_n(self.E),
+            0x1c: lambda: self.rr_n(self.H),
+            0x1d: lambda: self.rr_n(self.L),
+            0x1e: lambda: self.rr_n(self.HL)
         }
 
     def save_state(self, name, session):
@@ -333,6 +381,34 @@ class Z80():
         session.add(cpu_state)
         session.commit()
 
+    def execute_boot_opcode(self, num=1):
+        """
+        Executes an opcode of the booting sequence, takes
+        ????? instructions to complete.
+        Reads instructions with mem.read_bios() instead
+        of from normal memory.
+
+        Returns
+        -------
+        int
+            number of clock cycles taken
+        """
+        if self.pc == 0x98:
+            self.dump_registers()
+            quit()
+        if self.pc >= 0x100:
+            quit()
+        opcode = self.mem.read_bios(self.pc)
+        self.pc += 1
+        try:
+            #log.info("executing: " + hex(opcode) + " @ " + hex(self.pc - 1))
+            cycles = self.opcodes[opcode]()
+        except KeyError:
+            log.critical('INVALID OPCODE ' + hex(opcode) + ' @ ' + hex(self.pc))
+            cycles = 0
+
+        return cycles
+
     def execute_opcode(self, num=1):
         """
         Executes num number of opcode instructions.
@@ -351,21 +427,42 @@ class Z80():
         """
         opcode = self.mem.read(self.pc)
         self.pc += 1
-        self.count += 1 #TODO
+        #self.count += 1 #TODO
         try:
             #log.debug('executing: %s' % hex(opcode))
-            #f self.count > 16000:
-            #   print("DEBUG:z80:executing: " + hex(opcode))
+            #if self.count > 16000:
+               #print("DEBUG:z80:executing: " + hex(opcode))
             cycles = self.opcodes[opcode]()
-            #f self.count > 16000:
-            #   self.dump_registers()
+            if self.reg[self.A] is None:
+                print(hex(opcode))
+            #if self.count > 1280597:
+                #print("executing:    " + hex(opcode))
+                #self.dump_registers()
         except KeyError:
-            log.critical('INVALID OPCODE EXECUTION ATTEMPT!')
-            log.critical('OPCODE hex(opcode)' + ' at ' + hex(self.pc))
+            log.critical('INVALID OPCODE ' + hex(opcode) + ' @ ' + hex(self.pc))
             cycles = 0
+        if self.pc == 0xbac0:
+            log.debug(hex(opcode))
+            log.debug(self.count)
         return cycles
 
+    def extended_opcode(self):
+        """
+        Extended opcodes.
 
+        Returns
+        -------
+        int
+            number of cycles taken
+        """
+        opcode = self.mem.read(self.pc)
+        self.pc += 1
+        try:
+            cycles = self.ext_opcodes[opcode]()
+        except KeyError:
+            log.critical('INVALID OPCODE ' + hex(opcode) + ' @ ' + hex(self.pc))
+            cycles = 0
+        return cycles
 
     def NOP(self):
         """ No operation """
@@ -491,7 +588,7 @@ class Z80():
             self.reg[self.A] = self.mem.read(self.reg[self.C] + 0xff00)
         return 8
 
-    def load_a_hl(self, dec=True, load=True):
+    def load_a_hl(self, dec, load):
         """
         Store/load A in (HL), or (HL) in A, increment/decrement HL.
 
@@ -518,24 +615,25 @@ class Z80():
         self.set_reg(self.H, self.L, HL_val)
         return 8
 
-    def a_n(self, store=False):
+    def a_n(self, store):
         """
         Store/load A in memory address 0xff00 + n
 
         Parameters
         ----------
         store : bool
-            if true writes, if false reads
+            if true writes, if false loads
         Returns
         -------
         int
             num of cycles
         """
-        if store:
-            self.mem.write(self.reg[self.A], self.mem.read(self.pc) + 0xff00)
-        else:
-            self.reg[self.A] = self.mem.read(self.mem.read(self.pc) + 0xff00)
+        offset = self.mem.read(self.pc)
         self.pc += 1
+        if store:
+            self.mem.write(self.reg[self.A], offset + 0xff00)
+        else:
+            self.reg[self.A] = self.mem.read(offset + 0xff00)
         return 12
 
     def ld_nn(self, dest, set_sp=False):
@@ -652,6 +750,8 @@ class Z80():
                 reg2
         """
         self.reg[r2] = self.mem.read(self.sp)
+        if r2 == self.F:
+            self.reg[r2] &= 0xf0
         self.sp += 1
         self.reg[r1] = self.mem.read(self.sp)
         self.sp += 1
@@ -880,7 +980,7 @@ class Z80():
         a_reg = self.reg[self.A]
         if src == self.N:
             val = self.mem.read(self.pc)
-            pc += 1
+            self.pc += 1
         elif src == self.HL:
             val = self.mem.read(self.get_reg(self.H, self.L))
         else: # src is index of A-L
@@ -950,6 +1050,7 @@ class Z80():
         """
         if src == self.HL:
             val = self.mem.read(self.get_reg(self.H, self.L))
+            old_val = val
             self.mem.write(val + 1, self.get_reg(self.H, self.L))
         else: # src is index
             old_val = self.reg[src]
@@ -1109,9 +1210,7 @@ class Z80():
         Jump to nn.
         """
         val = self.mem.read_word(self.pc)
-        log.debug("jumped to: " + hex(val))
         self.pc = val
-        log.debug("pc: " + hex(self.pc))
         return 12
 
     def jump_cc(self, isSet, flag, immmediate_jump=False):
@@ -1129,9 +1228,9 @@ class Z80():
         """
         if self.flag_set(flag) == isSet:
             return self.jump_n() if immmediate_jump else self.jump_nn()
-        else:
-            self.pc += 1
-            return 12
+
+        self.pc += 1
+        return 12
 
     def jump_hl(self):
         """
@@ -1174,16 +1273,19 @@ class Z80():
         int
             clock cycles taken
         """
+        print("dec adjusting!")
+        print(self.count)
+        self.count += 1
         a_reg = self.reg[self.A]
-        if flag_set(self.flags.N):
-            if flag_set(self.flags.H) or a_reg & 0x0f > 0x09:
+        if self.flag_set(self.flags.N):
+            if self.flag_set(self.flags.H) or a_reg & 0x0f > 0x09:
                 a_reg += 0x06
-            if flag_set(self.flags.C) or a_reg > 0x9f:
+            if self.flag_set(self.flags.C) or a_reg > 0x9f:
                 a_reg += 0x06
         else:
-            if flag_set(self.flags.H):
+            if self.flag_set(self.flags.H):
                 a_reg = (a_reg - 0x06) & 0xff
-            if flag_set(self.flags.C):
+            if self.flag_set(self.flags.C):
                 a_reg -= 0x60
         if a_reg & 0x100 == 0x100:
             self.set_flag(self.flags.C)
@@ -1329,6 +1431,7 @@ class Z80():
         self.reg[self.A] = a_reg & 0xff
         return 4
 
+    #TODO??? 0 flag set?
     def rotate_r_a(self):
         """
         Rotate A right through carry flag.
@@ -1355,15 +1458,129 @@ class Z80():
         self.reg[self.A] = a_reg & 0xff
         return 4
 
+    def rr_n(self, src):
+        """
+        Rotate n right through Carry Flag
+
+        n = A-L, (HL)
+        Flags
+        Z - set if 0
+        N/H - Reset
+        C - Old bit 0
+        
+        Returns
+        -------
+        int 
+            cycles taken
+        """
+        if src == self.HL:
+            data = self.mem.read(self.get_reg(self.H, self.L))
+        else:
+            data = self.reg[src]
+
+        lsb = data & 0x1
+        carryIn = 1 if self.flag_set(self.flags.C) else 0
+        data = (data >> 1) | (carryIn << 7)
+        data &= 0xff
+
+        self.reset_flags()
+        if data == 0:
+            self.set_flag(self.flags.Z)
+
+        if lsb != 0:
+            self.set_flag(self.flags.C)
+
+        if src == self.HL:
+            self.mem.write(data, self.get_reg(self.H, self.L))
+        else:
+            self.reg[src] = data
+
+        return 16 if src == self.HL else 8
+        
+
+    def stop(self):
+        """
+        TODO
+        """
+        self.pc += 1
+
     #TODO
     def disable_interrupts(self):
         """
         #TODO
         """
-        pass
+        log.debug('DISABLE INTERRUPTS TODO')
         
 
+    def call(self):
+        """
+        Push address of next instruction onto stack and then jump to address
+        nn.
 
+        Returns
+        -------
+        int 
+            cycles taken
+        """
+        address = self.mem.read_word(self.pc)
+        self.pc += 2
+        self.push_pc()
+        self.pc = address
+        return 12 
+
+    def call_cc(self, flag, isSet):
+        """
+        Call address n if isSet and flag match
+
+        Returns
+        -------
+        int
+            cycles taken
+        """
+        if self.flag_set(flag) == isSet:
+            return 12 + self.call()
+        else:
+            self.pc += 2
+            return 12
+            
+    def ret(self):
+        """
+        Pops two bytes from stack jumps to that address
+        
+        Returns
+        -------
+        int
+            cycles taken
+        """
+        self.pc = self.mem.read_word(self.sp)
+        self.sp += 2
+        return 8 
+
+    def ret_cc(self, flag, isSet):
+        """
+        Return if isSet and flag match
+
+        Returns
+        -------
+        int
+            cycles taken
+        """
+        if self.flag_set(flag) == isSet:
+            return 4 + self.ret()
+        else:
+            return 8
+
+
+
+    def push_pc(self):
+        """
+        Pushes current program counter value to the stack
+        MSB first
+        """
+        self.sp -= 1
+        self.mem.write((self.pc & 0xff00) >> 8, self.sp)
+        self.sp -= 1
+        self.mem.write((self.pc & 0xff), self.sp)
 
             
     def dump_registers(self):
@@ -1384,5 +1601,54 @@ class Z80():
     def reset_flags(self):
         """ Resets all Flags to 0.  """
         self.reg[self.F] = 0
+
+    def srl_n(self, src, signed):
+        """
+        Shift n right into Carry. MSB set to 0 if signed = True, else unchanged
+        n : A-L, (HL)
+        Flags:
+        Z - set if 0
+        N/H - Reset
+        C - Old bit 0 data
+
+        Parameters
+        ----------
+        src
+            register to shift
+        signed
+            if True MSB set to 0, if false not changed
+
+        Returns
+        -------
+        int
+            cycles taken
+        """
+        if src == self.HL:
+            data = self.mem.read(self.get_reg(self.H, self.L))
+        else:
+            data = self.reg[src]
+
+        lsb = data & 0x1
+        if signed:
+            bit7 = data & 0x80
+            data >>= 1 
+            data |= bit7
+        else:
+            data >>= 1
+            data &= 0x3f
+
+        self.reset_flags()
+        if data == 0:
+            self.set_flag(self.flags.Z)
+        if lsb == 1:
+            self.set_flag(self.flags.C)
+        
+        if src == self.HL:
+            self.mem.write(data, self.get_reg(self.H, self.L))
+        else:
+            self.reg[src] = data
+
+        return 16 if src == self.HL else 8
+
 
 
