@@ -18,6 +18,7 @@ class GPU:
         index = col + (row * 160)
 
     """
+    #TODO: The scanline incrementing is confusing...
     def __init__(self, memory):
         self.clock = 0
         self.mode_clock = 0
@@ -61,6 +62,7 @@ class GPU:
             if self.scanline < 144:
                 self.set_mode(self.modes.OR, self.mode_clock % 204)
             else:
+                self.mem.write(self.scanline, 0xff44)
                 self.set_mode(self.modes.VB, self.mode_clock % 204)
 
     def v_blank(self, cycles):
@@ -76,6 +78,7 @@ class GPU:
                 self.scanline = 0
             else:
                 self.scanline += 1
+                self.mem.write(self.scanline, 0xff44)
                 self.set_mode(self.modes.VB, self.mode_clock % 456)
             
 
@@ -85,6 +88,7 @@ class GPU:
         Mode 2 of the screen draw process, reading from OAM memory.
         CPU cannot access OAM memory during.
         """
+        self.mem.write(self.scanline, 0xff44)
         self.mode_clock += cycles
         if self.mode_clock >= 80:
             self.set_mode(self.modes.LCD, self.mode_clock % 80)
@@ -136,7 +140,7 @@ class GPU:
     def draw_scanline(self, scanline):
         #print("drawing background " + str(scanline))
         self.draw_background(scanline)
-        self.mem.write(self.scanline, 0xff44)
+        #self.mem.write(self.scanline, 0xff44)
 
 
     def draw_background(self, scanline):
@@ -153,7 +157,8 @@ class GPU:
             #print("background not turned on :(")
             return #bg turned off
         else:
-            print("DRAWING BACKGROUND!!!!!!!")
+            #print("DRAWING BACKGROUND!!!!!!!")
+            pass
 
 
         
