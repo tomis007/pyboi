@@ -269,7 +269,8 @@ class Z80():
             0xba: lambda: self.cp_n(self.D),
             0xbb: lambda: self.cp_n(self.E),
             0xbc: lambda: self.cp_n(self.F),
-            0xbd: lambda: self.cp_n(self.HL),
+            0xbd: lambda: self.cp_n(self.L),
+            0xbe: lambda: self.cp_n(self.HL),
             0xfe: lambda: self.cp_n(self.N),
             0x3c: lambda: self.inc_n(self.A),
             0x04: lambda: self.inc_n(self.B),
@@ -355,7 +356,251 @@ class Z80():
             0x1b: lambda: self.rr_n(self.E),
             0x1c: lambda: self.rr_n(self.H),
             0x1d: lambda: self.rr_n(self.L),
-            0x1e: lambda: self.rr_n(self.HL)
+            0x1e: lambda: self.rr_n(self.HL),
+            0x37: lambda: self.swap(self.A),
+            0x30: lambda: self.swap(self.B),
+            0x31: lambda: self.swap(self.C),
+            0x32: lambda: self.swap(self.D),
+            0x33: lambda: self.swap(self.E),
+            0x34: lambda: self.swap(self.H),
+            0x35: lambda: self.swap(self.L),
+            0x36: lambda: self.swap(self.HL),
+
+            0x27: lambda: self.sla_n(self.A),   
+            0x20: lambda: self.sla_n(self.B),
+            0x21: lambda: self.sla_n(self.C),
+            0x22: lambda: self.sla_n(self.D),
+            0x23: lambda: self.sla_n(self.E),
+            0x24: lambda: self.sla_n(self.H),
+            0x25: lambda: self.sla_n(self.L),
+            0x26: lambda: self.sla_n(self.HL),
+            
+            0x07: lambda: self.rotate_n_lc(self.A), 
+            0x00: lambda: self.rotate_n_lc(self.B),
+            0x01: lambda: self.rotate_n_lc(self.C),
+            0x02: lambda: self.rotate_n_lc(self.D),
+            0x03: lambda: self.rotate_n_lc(self.E),
+            0x04: lambda: self.rotate_n_lc(self.H),
+            0x05: lambda: self.rotate_n_lc(self.L),
+            0x06: lambda: self.rotate_n_lc(self.HL),
+
+
+
+
+            0x17: lambda: self.rotate_l_n(self.A),
+            0x10: lambda: self.rotate_l_n(self.B), 
+            0x11: lambda: self.rotate_l_n(self.C), 
+            0x12: lambda: self.rotate_l_n(self.D), 
+            0x13: lambda: self.rotate_l_n(self.E), 
+            0x14: lambda: self.rotate_l_n(self.H), 
+            0x15: lambda: self.rotate_l_n(self.L), 
+            0x16: lambda: self.rotate_l_n(self.HL),
+
+            0x0f: lambda: self.rrc_n(self.A),
+            0x08: lambda: self.rrc_n(self.B), 
+            0x09: lambda: self.rrc_n(self.C), 
+            0x0a: lambda: self.rrc_n(self.D), 
+            0x0b: lambda: self.rrc_n(self.E), 
+            0x0c: lambda: self.rrc_n(self.H), 
+            0x0d: lambda: self.rrc_n(self.L), 
+            0x0e: lambda: self.rrc_n(self.HL),
+
+
+
+            0x47: lambda: self.bit_br(0, self.A),
+            0x40: lambda: self.bit_br(0, self.B),
+            0x41: lambda: self.bit_br(0, self.C),
+            0x42: lambda: self.bit_br(0, self.D),
+            0x43: lambda: self.bit_br(0, self.E),
+            0x44: lambda: self.bit_br(0, self.H),
+            0x45: lambda: self.bit_br(0, self.L),
+            0x46: lambda: self.bit_br(0, self.HL),
+            0x4f: lambda: self.bit_br(1, self.A),
+            0x48: lambda: self.bit_br(1, self.B),
+            0x49: lambda: self.bit_br(1, self.C),
+            0x4a: lambda: self.bit_br(1, self.D),
+            0x4b: lambda: self.bit_br(1, self.E),
+            0x4c: lambda: self.bit_br(1, self.H),
+            0x4d: lambda: self.bit_br(1, self.L),
+            0x4e: lambda: self.bit_br(1, self.HL),
+            0x57: lambda: self.bit_br(2, self.A),
+            0x50: lambda: self.bit_br(2, self.B),
+            0x51: lambda: self.bit_br(2, self.C),
+            0x52: lambda: self.bit_br(2, self.D),
+            0x53: lambda: self.bit_br(2, self.E),
+            0x54: lambda: self.bit_br(2, self.H),
+            0x55: lambda: self.bit_br(2, self.L),
+            0x56: lambda: self.bit_br(2, self.HL),
+            0x5f: lambda: self.bit_br(3, self.A),
+            0x58: lambda: self.bit_br(3, self.B),
+            0x59: lambda: self.bit_br(3, self.C),
+            0x5a: lambda: self.bit_br(3, self.D),
+            0x5b: lambda: self.bit_br(3, self.E),
+            0x5c: lambda: self.bit_br(3, self.H),
+            0x5d: lambda: self.bit_br(3, self.L),
+            0x5e: lambda: self.bit_br(3, self.HL),
+
+            0x67: lambda: self.bit_br(4, self.A),
+            0x60: lambda: self.bit_br(4, self.B),
+            0x61: lambda: self.bit_br(4, self.C),
+            0x62: lambda: self.bit_br(4, self.D),
+            0x63: lambda: self.bit_br(4, self.E),
+            0x64: lambda: self.bit_br(4, self.H),
+            0x65: lambda: self.bit_br(4, self.L),
+            0x66: lambda: self.bit_br(4, self.HL),
+            0x6f: lambda: self.bit_br(5, self.A),
+            0x68: lambda: self.bit_br(5, self.B),
+            0x69: lambda: self.bit_br(5, self.C),
+            0x6a: lambda: self.bit_br(5, self.D),
+            0x6b: lambda: self.bit_br(5, self.E),
+            0x6c: lambda: self.bit_br(5, self.H),
+            0x6d: lambda: self.bit_br(5, self.L),
+            0x6e: lambda: self.bit_br(5, self.HL),
+            0x77: lambda: self.bit_br(6, self.A),
+            0x70: lambda: self.bit_br(6, self.B),
+            0x71: lambda: self.bit_br(6, self.C),
+            0x72: lambda: self.bit_br(6, self.D),
+            0x73: lambda: self.bit_br(6, self.E),
+            0x74: lambda: self.bit_br(6, self.H),
+            0x75: lambda: self.bit_br(6, self.L),
+            0x76: lambda: self.bit_br(6, self.HL),
+            0x7f: lambda: self.bit_br(7, self.A),
+            0x78: lambda: self.bit_br(7, self.B),
+            0x79: lambda: self.bit_br(7, self.C),
+            0x7a: lambda: self.bit_br(7, self.D),
+            0x7b: lambda: self.bit_br(7, self.E),
+            0x7c: lambda: self.bit_br(7, self.H),
+            0x7d: lambda: self.bit_br(7, self.L),
+            0x7e: lambda: self.bit_br(7, self.HL),
+
+            0xc7: lambda: self.set_b_r(self.A, 0, 1),
+            0xc0: lambda: self.set_b_r(self.B, 0, 1),
+            0xc1: lambda: self.set_b_r(self.C, 0, 1),
+            0xc2: lambda: self.set_b_r(self.D, 0, 1),
+            0xc3: lambda: self.set_b_r(self.E, 0, 1),
+            0xc4: lambda: self.set_b_r(self.H, 0, 1),
+            0xc5: lambda: self.set_b_r(self.L, 0, 1),
+            0xc6: lambda: self.set_b_r(self.HL, 0, 1),
+            0xcf: lambda: self.set_b_r(self.A, 1, 1),
+            0xc8: lambda: self.set_b_r(self.B, 1, 1),
+            0xc9: lambda: self.set_b_r(self.C, 1, 1),
+            0xca: lambda: self.set_b_r(self.D, 1, 1),
+            0xcb: lambda: self.set_b_r(self.E, 1, 1),
+            0xcc: lambda: self.set_b_r(self.H, 1, 1),
+            0xcd: lambda: self.set_b_r(self.L, 1, 1),
+            0xce: lambda: self.set_b_r(self.HL, 1, 1),
+            0xd7: lambda: self.set_b_r(self.A, 2, 1),
+            0xd0: lambda: self.set_b_r(self.B, 2, 1),
+            0xd1: lambda: self.set_b_r(self.C, 2, 1),
+            0xd2: lambda: self.set_b_r(self.D, 2, 1),
+            0xd3: lambda: self.set_b_r(self.E, 2, 1),
+            0xd4: lambda: self.set_b_r(self.H, 2, 1),
+            0xd5: lambda: self.set_b_r(self.L, 2, 1),
+            0xd6: lambda: self.set_b_r(self.HL, 2, 1),
+            0xdf: lambda: self.set_b_r(self.A, 3, 1),
+            0xd8: lambda: self.set_b_r(self.B, 3, 1),
+            0xd9: lambda: self.set_b_r(self.C, 3, 1),
+            0xda: lambda: self.set_b_r(self.D, 3, 1),
+            0xdb: lambda: self.set_b_r(self.E, 3, 1),
+            0xdc: lambda: self.set_b_r(self.H, 3, 1),
+            0xdd: lambda: self.set_b_r(self.L, 3, 1),
+            0xde: lambda: self.set_b_r(self.HL, 3, 1),
+            0xe7: lambda: self.set_b_r(self.A, 4, 1),
+            0xe0: lambda: self.set_b_r(self.B, 4, 1),
+            0xe1: lambda: self.set_b_r(self.C, 4, 1),
+            0xe2: lambda: self.set_b_r(self.D, 4, 1),
+            0xe3: lambda: self.set_b_r(self.E, 4, 1),
+            0xe4: lambda: self.set_b_r(self.H, 4, 1),
+            0xe5: lambda: self.set_b_r(self.L, 4, 1),
+            0xe6: lambda: self.set_b_r(self.HL, 4, 1),
+            0xef: lambda: self.set_b_r(self.A, 5, 1),
+            0xe8: lambda: self.set_b_r(self.B, 5, 1),
+            0xe9: lambda: self.set_b_r(self.C, 5, 1),
+            0xea: lambda: self.set_b_r(self.D, 5, 1),
+            0xeb: lambda: self.set_b_r(self.E, 5, 1),
+            0xec: lambda: self.set_b_r(self.H, 5, 1),
+            0xed: lambda: self.set_b_r(self.L, 5, 1),
+            0xee: lambda: self.set_b_r(self.HL, 5, 1),
+            0xf7: lambda: self.set_b_r(self.A, 6, 1),
+            0xf0: lambda: self.set_b_r(self.B, 6, 1),
+            0xf1: lambda: self.set_b_r(self.C, 6, 1),
+            0xf2: lambda: self.set_b_r(self.D, 6, 1),
+            0xf3: lambda: self.set_b_r(self.E, 6, 1),
+            0xf4: lambda: self.set_b_r(self.H, 6, 1),
+            0xf5: lambda: self.set_b_r(self.L, 6, 1),
+            0xf6: lambda: self.set_b_r(self.HL, 6, 1),
+            0xff: lambda: self.set_b_r(self.A, 7, 1),
+            0xf8: lambda: self.set_b_r(self.B, 7, 1),
+            0xf9: lambda: self.set_b_r(self.C, 7, 1),
+            0xfa: lambda: self.set_b_r(self.D, 7, 1),
+            0xfb: lambda: self.set_b_r(self.E, 7, 1),
+            0xfc: lambda: self.set_b_r(self.H, 7, 1),
+            0xfd: lambda: self.set_b_r(self.L, 7, 1),
+            0xfe: lambda: self.set_b_r(self.HL, 7, 1),
+            0x87: lambda: self.set_b_r(self.A, 0, 0),
+            0x80: lambda: self.set_b_r(self.B, 0, 0),
+            0x81: lambda: self.set_b_r(self.C, 0, 0),
+            0x82: lambda: self.set_b_r(self.D, 0, 0),
+            0x83: lambda: self.set_b_r(self.E, 0, 0),
+            0x84: lambda: self.set_b_r(self.H, 0, 0),
+            0x85: lambda: self.set_b_r(self.L, 0, 0),
+            0x86: lambda: self.set_b_r(self.HL, 0, 0),
+            0x8f: lambda: self.set_b_r(self.A, 1, 0),
+            0x88: lambda: self.set_b_r(self.B, 1, 0),
+            0x89: lambda: self.set_b_r(self.C, 1, 0),
+            0x8a: lambda: self.set_b_r(self.D, 1, 0),
+            0x8b: lambda: self.set_b_r(self.E, 1, 0),
+            0x8c: lambda: self.set_b_r(self.H, 1, 0),
+            0x8d: lambda: self.set_b_r(self.L, 1, 0),
+            0x8e: lambda: self.set_b_r(self.HL, 1, 0),
+            0x97: lambda: self.set_b_r(self.A, 2, 0),
+            0x90: lambda: self.set_b_r(self.B, 2, 0),
+            0x91: lambda: self.set_b_r(self.C, 2, 0),
+            0x92: lambda: self.set_b_r(self.D, 2, 0),
+            0x93: lambda: self.set_b_r(self.E, 2, 0),
+            0x94: lambda: self.set_b_r(self.H, 2, 0),
+            0x95: lambda: self.set_b_r(self.L, 2, 0),
+            0x96: lambda: self.set_b_r(self.HL, 2, 0),
+            0x9f: lambda: self.set_b_r(self.A, 3, 0),
+            0x98: lambda: self.set_b_r(self.B, 3, 0),
+            0x99: lambda: self.set_b_r(self.C, 3, 0),
+            0x9a: lambda: self.set_b_r(self.D, 3, 0),
+            0x9b: lambda: self.set_b_r(self.E, 3, 0),
+            0x9c: lambda: self.set_b_r(self.H, 3, 0),
+            0x9d: lambda: self.set_b_r(self.L, 3, 0),
+            0x9e: lambda: self.set_b_r(self.HL, 3, 0),
+            0xa7: lambda: self.set_b_r(self.A, 4, 0),
+            0xa0: lambda: self.set_b_r(self.B, 4, 0),
+            0xa1: lambda: self.set_b_r(self.C, 4, 0),
+            0xa2: lambda: self.set_b_r(self.D, 4, 0),
+            0xa3: lambda: self.set_b_r(self.E, 4, 0),
+            0xa4: lambda: self.set_b_r(self.H, 4, 0),
+            0xa5: lambda: self.set_b_r(self.L, 4, 0),
+            0xa6: lambda: self.set_b_r(self.HL, 4, 0),
+            0xaf: lambda: self.set_b_r(self.A, 5, 0),
+            0xa8: lambda: self.set_b_r(self.B, 5, 0),
+            0xa9: lambda: self.set_b_r(self.C, 5, 0),
+            0xaa: lambda: self.set_b_r(self.D, 5, 0),
+            0xab: lambda: self.set_b_r(self.E, 5, 0),
+            0xac: lambda: self.set_b_r(self.H, 5, 0),
+            0xad: lambda: self.set_b_r(self.L, 5, 0),
+            0xae: lambda: self.set_b_r(self.HL, 5, 0),
+            0xb7: lambda: self.set_b_r(self.A, 6, 0),
+            0xb0: lambda: self.set_b_r(self.B, 6, 0),
+            0xb1: lambda: self.set_b_r(self.C, 6, 0),
+            0xb2: lambda: self.set_b_r(self.D, 6, 0),
+            0xb3: lambda: self.set_b_r(self.E, 6, 0),
+            0xb4: lambda: self.set_b_r(self.H, 6, 0),
+            0xb5: lambda: self.set_b_r(self.L, 6, 0),
+            0xb6: lambda: self.set_b_r(self.HL, 6, 0),
+            0xbf: lambda: self.set_b_r(self.A, 7, 0),
+            0xb8: lambda: self.set_b_r(self.B, 7, 0),
+            0xb9: lambda: self.set_b_r(self.C, 7, 0),
+            0xba: lambda: self.set_b_r(self.D, 7, 0),
+            0xbb: lambda: self.set_b_r(self.E, 7, 0),
+            0xbc: lambda: self.set_b_r(self.H, 7, 0),
+            0xbd: lambda: self.set_b_r(self.L, 7, 0),
+            0xbe: lambda: self.set_b_r(self.HL, 7, 0)
         }
 
     def save_state(self, name, session):
@@ -393,10 +638,9 @@ class Z80():
         int
             number of clock cycles taken
         """
-        if self.pc == 0x98:
-            self.dump_registers()
-            quit()
         if self.pc >= 0x100:
+            log.info("BIOS COMPLETE!")
+            self.dump_registers()
             quit()
         opcode = self.mem.read_bios(self.pc)
         self.pc += 1
@@ -427,23 +671,13 @@ class Z80():
         """
         opcode = self.mem.read(self.pc)
         self.pc += 1
-        #self.count += 1 #TODO
         try:
-            #log.debug('executing: %s' % hex(opcode))
-            #if self.count > 16000:
-               #print("DEBUG:z80:executing: " + hex(opcode))
             cycles = self.opcodes[opcode]()
-            if self.reg[self.A] is None:
-                print(hex(opcode))
-            #if self.count > 1280597:
-                #print("executing:    " + hex(opcode))
-                #self.dump_registers()
         except KeyError:
             log.critical('INVALID OPCODE ' + hex(opcode) + ' @ ' + hex(self.pc))
             cycles = 0
-        if self.pc == 0xbac0:
-            log.debug(hex(opcode))
-            log.debug(self.count)
+        if cycles == None:
+            print(hex(opcode))
         return cycles
 
     def extended_opcode(self):
@@ -460,7 +694,7 @@ class Z80():
         try:
             cycles = self.ext_opcodes[opcode]()
         except KeyError:
-            log.critical('INVALID OPCODE ' + hex(opcode) + ' @ ' + hex(self.pc))
+            log.critical('EXTENDED INVALID OPCODE ' + hex(opcode) + ' @ ' + hex(self.pc))
             cycles = 0
         return cycles
 
@@ -991,6 +1225,9 @@ class Z80():
         self.reset_flags()
         if self.reg[self.A] == 0:
             self.set_flag(self.flags.Z)
+        
+        return 8 if val == self.HL or val == self.N else 4
+
 
     def cp_n(self, src):
         """
@@ -1149,14 +1386,15 @@ class Z80():
         # read as a signed byte
         val = c_int8(self.mem.read(self.pc)).value
         self.pc += 1
-        self.sp += val
-        self.sp &= 0xffff
 
         self.reset_flags()
         if (self.sp & 0xf) + (val & 0xf) > 0xf:
             self.set_flag(self.flags.H)
         if (self.sp & 0xff) + (val & 0xff) > 0xff:
             self.set_flag(self.flags.C)
+
+        self.sp += val
+        self.sp &= 0xffff
         return 16
 
     def inc_nn(self, r1, r2, inc_sp=False):
@@ -1382,6 +1620,81 @@ class Z80():
         self.reg[self.A] = a_reg & 0xff
         return 4
 
+
+    def rotate_n_lc(self, src):
+        """
+        Rotates n left, old bit 7 to carry flag.
+
+        Flags
+        Z - Set if 0
+        N/H - Reset
+        C - Old bit 7 data
+        
+        ...
+        Parameters
+        -----------
+        src
+            A-L, HL
+        Returns
+        -------
+        int 
+            cycles taken
+        """
+        if src == self.HL:
+            data = self.mem.read(self.get_reg(self.H, self.L))
+        else: 
+            data = self.reg[src]
+        msb = (data & 0x80) >> 7
+
+        data <<= 1
+        data |= msb
+
+        self.reset_flags()
+        if msb == 1:
+            self.set_flag(self.flags.C)
+
+        if src == self.HL:
+            self.mem.write(data, self.get_reg(self.H, self.L))
+            return 16
+        else: 
+            self.reg[src] = data & 0xff
+            return 8
+
+    def rotate_l_n(self, src):
+        """
+        Rotates n left through carry flag.
+        src - A-HL
+        Flags
+        Z - set if 0
+        N/H - reset
+        C - old bit 7 data
+
+        ...
+        Returns
+        int
+            cycles taken
+        """
+        if src == self.HL:
+            data = self.mem.read(self.get_reg(self.H, self.L))
+        else: 
+            data = self.reg[src]
+
+        data = self.reg[self.A]
+        data <<= 1
+        if self.flag_set(self.flags.C):
+            data |= 1 # set lsb to C
+        self.reset_flags()
+        if data & 0x100 == 0x100:
+            self.set_flag(self.flags.C)
+
+        if src == self.HL:
+            self.mem.write(data, self.get_reg(self.H, self.L))
+            return 16
+        else: 
+            self.reg[src] = data & 0xff
+            return 8
+
+
     def rotate_l_a(self):
         """
         Rotate A left through carry flag.
@@ -1496,6 +1809,41 @@ class Z80():
             self.reg[src] = data
 
         return 16 if src == self.HL else 8
+
+    def rrc_n(self, src):
+        """
+        Rotate n right. Old bit 0 to carry flag
+        Flags
+        Z - Set if 0
+        N/H - Reset
+        C - Old bit 0 data
+
+        Returns
+        int
+            cycles taken
+        """
+        if src == self.HL:
+            data = self.mem.read(self.get_reg(self.H, self.L))
+        else:
+            data = self.reg[src]
+
+        lsb = data & 0x1
+        data = (data >> 1) | (lsb << 7)
+        data &= 0xff
+
+        self.reset_flags()
+        if data == 0:
+            self.set_flag(self.flags.Z)
+        if lsb == 1:
+            self.set_flag(self.flags.C)
+
+        if src == self.HL:
+            self.mem.write(data, self.get_reg(self.H, self.L))
+        else:
+            self.reg[src] = data
+
+        return 8 if src != self.HL else 16
+
         
 
     def stop(self):
@@ -1503,6 +1851,8 @@ class Z80():
         TODO
         """
         self.pc += 1
+        log.debug("IMPLEMENT STOP")
+        return 0
 
     #TODO
     def disable_interrupts(self):
@@ -1510,6 +1860,7 @@ class Z80():
         #TODO
         """
         log.debug('DISABLE INTERRUPTS TODO')
+        return 0
         
 
     def call(self):
@@ -1602,6 +1953,48 @@ class Z80():
         """ Resets all Flags to 0.  """
         self.reg[self.F] = 0
 
+
+    def sla_n(self, src):
+        """
+        Shift src left into carry, LSB of n set to 0.
+
+        Flags
+        Z - Set if 0
+        H/N - Reset
+        C - old bit 7 data
+
+        Parameters
+        ----------
+        src
+            A-L, (HL)
+        Returns
+        -------
+        int
+            cycles taken
+        """
+        if src == self.HL:
+            data = self.mem.read(self.get_reg(self.H, self.L))
+        else:
+            data = self.reg[src]
+
+        msb = (data & 0x80) & 0xff
+        data <<= 1
+        data &= 0xff
+
+        self.reset_flags()
+        if data == 0:
+            self.set_flag(self.flags.Z)
+        if msb != 0:
+            self.set_flag(self.flags.C)
+
+        if src == self.HL:
+            self.mem.write(data, self.get_reg(self.H, self.L))
+        else:
+            self.reg[src] = data
+
+        return 8 if src != self.HL else 16
+        
+
     def srl_n(self, src, signed):
         """
         Shift n right into Carry. MSB set to 0 if signed = True, else unchanged
@@ -1650,5 +2043,106 @@ class Z80():
 
         return 16 if src == self.HL else 8
 
+    def swap(self, src):
+        """
+        Swaps the upper and lower nibbles of n.
+
+        n = A-L/(HL)
+
+        Flags
+        Z - Set if 0
+        N/H/C - Reset
+
+        Parameters
+        ----------
+        src
+            to swap A-L/(HL)
+
+        Returns
+        -------
+        int
+            clock cycles
+        """
+        if src == self.HL:
+            data = self.mem.read(self.get_reg(self.H, self.L))
+        else:
+            data = self.reg[src]
+        
+        lower_nibble = data & 0xf
+        data = ((data & 0xf0) >> 4) | (lower_nibble << 4)
+
+        self.reset_flags()
+        if data == 0x0:
+            self.set_flag(self.flags.Z)
+
+        if src == self.HL:
+            self.mem.write(data, self.get_reg(self.H, self.L))
+        else:
+            self.reg[src] = data
+
+        return 16 if src == self.HL else 8
 
 
+    def bit_br(self, bit, reg):
+        """
+        Tests bit b in register r.
+    
+        Flags:
+        Z - Set if 0
+        N - reset
+        H - set
+        C - not affected
+    
+        Returns
+        -------
+        int 
+            number of cycles
+        """
+        if reg == self.HL:
+            data = self.mem.read(self.get_reg(self.H, self.L))
+        else:
+            data = self.reg[reg]
+
+        self.reset_flag(self.flags.Z)
+        if not self.is_set(data, bit):
+            self.set_flag(self.flags.Z)
+        self.reset_flag(self.flags.N)
+        self.set_flag(self.flags.H)
+
+        return 8 if reg == self.HL else 4
+
+    def set_b_r(self, src, bit, new_bit):
+        """
+        Sets bit bit in src to new_bit.
+        """
+        if src == self.HL:
+            data = self.mem.read(self.get_reg(self.H, self.L))
+        else:
+            data = self.reg[src]
+        data = self.set_bit(data, bit, new_bit)
+
+        return 8 if src == self.HL else 4
+
+    def set_bit(self, num, bit, new_bit):
+        """
+        Sets bit bit in num to new_bit.
+        """
+        if new_bit == 1:
+            return num | 1 << bit
+        else:
+            return num & ~(1 << bit)
+
+
+    def is_set(self, num, bit):
+        """
+        Tests if bit bit is set in num.
+
+        Returns
+        -------
+        True if 1
+        False if 0
+        """
+        return ((num >> bit) & 0x1) == 0x1
+    
+
+                
