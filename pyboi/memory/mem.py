@@ -89,7 +89,7 @@ class Memory:
         if address < 0:
             #log.critical('reading from negative address in bios')
             return 0
-        elif address < 0x100:
+        elif address <= 0x100:
             return self.bios[address]
         else:
             #log.critical('reading from out of bounds address in bios')
@@ -113,7 +113,7 @@ class Memory:
         """
         if address < 0:
             log.error('negative address read!')
-        elif self.bios_mode:
+        elif self.bios_mode and address <= 0x100:
             return self.read_bios(address)
         elif address < 0xe000:
             return self.membanks.read(address)
