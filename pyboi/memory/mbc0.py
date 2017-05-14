@@ -11,6 +11,8 @@ class MBC0:
     ----------
     rom : bytearray
         the 32kb of ROM from the cartridge
+    ram : RAMBank object
+        the ram for the cartridge
     """
     def __init__(self, cartridge):
         """
@@ -24,6 +26,7 @@ class MBC0:
 
         """
         self.rom = cartridge
+        self.ram = RAMBank(cartridge[0x149])
 
     def read_byte(self, address):
         """
@@ -38,11 +41,22 @@ class MBC0:
         """
         if address < 0x8000 and address >= 0:
             return self.rom[address]
+        elif address < 0xfdff:
+            return self.ram.read_byte(address)
+        else:
+            log.critical('INVALID READ @ ' + hex(address))
+            return 0
         
 
     def write_byte(self, byte, address):
         """
-        Write a byte to mbc0. Does nothing
+        Write a byte to mbc0. Does nothing if in rom,
+        if ram byte writes to ram
         """
-        pass #no registers in MBC0
+        if address < 0x8000:
+            pass
+        elif address < 0xfdff:
+            self.ram.write_byte(byte, address)
+        else:
+            log.critical('INVALID WRITE @ ' + hex(address))
 
