@@ -63,15 +63,26 @@ class Pyboi:
         Requires a rom to be loaded.
         """
         self.mem.set_bios_mode(True)
-        for _ in range(10000000):
+        for _ in range(9000000):
             cycles = self.z80.execute_boot_opcode()
             self.gpu.update_graphics(cycles)
         self.mem.set_bios_mode(False)
 
+    def get_boot_frame(self):
+        """
+        Runs enough clock cycles to get one frame.
+        """
+        self.mem.set_bios_mode(True)
+        count = 0
+        while count < 70224:
+            cycles = self.z80.execute_boot_opcode()
+            self.gpu.update_graphics(cycles)
+            count += cycles
+        return self.gpu.get_frame_buffer()
 
     def run(self):
         """ Start execution of the emulator. """
-        for _ in range(5200828):
+        for _ in range(95200828):
             cycles = self.z80.execute_opcode()
             self.gpu.update_graphics(cycles)
 
