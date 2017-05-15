@@ -168,7 +168,7 @@ class GPU:
         #print("drawing bg scanline: " + str(scanline))
         scY = self.mem.read(0xff42)
         scX = self.mem.read(0xff43)
-        tile_select = 0x9000 if self.bit_set(lcd_control, 4) else 0x8000
+        tile_select = 0x8000 if self.bit_set(lcd_control, 4) else 0x9000
         tile_map = 0x9c00 if self.bit_set(lcd_control, 3) else 0x9800
 
         y_offset = (((scY + scanline) // 8) % 32) * 32
@@ -223,8 +223,6 @@ class GPU:
         Places color at position col,row in the screen buffer.
         color is a byte value
         """
-        if color != 0:
-            print("DRAWING TO BUFFER: " + str(color))
         self.gb_screen[col + (row * 160)] = color
 
     def get_color(self, block_one, block_two, pixel):
