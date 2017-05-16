@@ -1,0 +1,193 @@
+html, body { 
+    height: 100%;
+    width: 100%;
+}
+
+#GameBoiBackground {
+    background-color: #f5f5dc;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+}
+
+#systemControls {
+    -webkit-touch-callout: none;
+    cursor: pointer;
+    display: block;
+    text-align: center;
+}
+/*http://stackoverflow.com/questions/2434602/css-setting-width-height-as-percentage-minus-pixels*/
+#controls {
+    vertical-align: top;
+    display: none;
+    -webkit-touch-callout: none;
+    cursor: pointer;
+    position: relative;
+    background-color: #f5f5dc;  
+    width: 320px;  
+}
+
+#start {
+    -webkit-transform: rotate(45deg); /* Safari and Chrome */
+    -moz-transform: rotate(45deg);   /* Firefox */
+    -ms-transform: rotate(45deg);   /* IE 9 */
+    -o-transform: rotate(45deg);   /* Opera */
+    transform: rotate(45deg);        
+    position: absolute;
+    top: 71%;
+    left: 83%;    
+    width: 1.3em;
+    height: 4em;
+    background-color: #333333;
+    border-radius: .4em;
+}
+
+
+#select {
+    -webkit-transform: rotate(45deg); /* Safari and Chrome */
+    -moz-transform: rotate(45deg);   /* Firefox */
+    -ms-transform: rotate(45deg);   /* IE 9 */
+    -o-transform: rotate(45deg);   /* Opera */
+    transform: rotate(45deg);        
+    position: absolute;
+    top: 71%;
+    left: 60%;    
+    width: 1.3em;
+    height: 4em;
+    background-color: #333333;
+    border-radius: .4em;
+}
+
+#menu {
+    position: absolute;
+    top: 83%;
+    left: 13%;    
+    width: 4em;
+    height: 1.3em;
+    background-color: #333333;
+    border-radius: .4em;
+}
+
+
+
+#GameBoi {
+    -webkit-touch-callout: none; 
+    -webkit-user-select: none;
+    align-content: center;
+    vertical-align: middle;
+    display: inline-block;
+}
+
+#up {
+    position: absolute;
+    left: 37%;
+    width: 2.5em;
+    height: 4em;
+    border-top-left-radius: .75em;
+    border-top-right-radius: .75em;
+    background-color: #333333;
+
+}
+
+#down {
+    position: absolute;
+    top: 60%;
+    left: 37%;
+    width: 2.5em;
+    height: 4em;
+    border-bottom-left-radius: .75em;
+    border-bottom-right-radius: .75em;
+    background-color: #333333;
+}
+/*http://stackoverflow.com/questions/14233341/how-can-i-rotate-an-html-div-90-degrees*/
+#left {
+    position: absolute;
+    top: 30.7%;
+    left: 7.5%;
+    width: 2.5em;
+    height: 4em;
+    border-bottom-left-radius: .75em;
+    border-bottom-right-radius: .75em;
+    background-color: #333333;
+    -webkit-transform: rotate(90deg); /* Safari and Chrome */
+    -moz-transform: rotate(90deg);   /* Firefox */
+    -ms-transform: rotate(90deg);   /* IE 9 */
+    -o-transform: rotate(90deg);   /* Opera */
+    transform: rotate(90deg);
+}
+
+#right {
+    position: absolute;
+    top: 30.7%;
+    left: 66.3%;
+    width: 2.5em;
+    height: 4em;
+    border-bottom-left-radius: .75em;
+    border-bottom-right-radius: .75em;
+    background-color: #333333;
+    -webkit-transform: rotate(270deg); /* Safari and Chrome */
+    -moz-transform: rotate(270deg);   /* Firefox */
+    -ms-transform: rotate(270deg);   /* IE 9 */
+    -o-transform: rotate(270deg);   /* Opera */
+    transform: rotate(270deg);
+}
+
+#center {
+    position: absolute;
+    top: 30.4%;
+    left: 29.4%;
+    width: 4em;
+    height: 4em;
+    border-radius: 2em;
+    background-color: #333333;
+}
+
+
+#jpA {
+    position: absolute;
+    top: 3.5%;
+    left: 80.2%;    
+    width: 3.5em;
+    height: 3.5em;
+    border-radius: 1.75em;
+    background-color: #333333;
+}
+
+#jpB {
+    position: absolute;
+    top: 27.5%;
+    left: 60%;    
+    width: 3.5em;
+    height: 3.5em;
+    border-radius: 1.75em;
+    background-color: #333333;
+}
+
+#joypad {
+    cursor: pointer;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    position: relative;
+    height: 10em;
+    width: 10em;
+    float: left;
+    top: 5%;
+}
+
+#buttons {
+    cursor: pointer;        
+    position: relative;
+    float: right;
+}
+
+
+#wrap {
+    float: left;
+    width: 100%;
+}
+
+#gamescreen {
+    background-color: black;
+}
