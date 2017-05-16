@@ -36,10 +36,10 @@ class Memory:
         self.hram = bytearray(0x80)
         self.bios_mode = False #default
         #requires bios.gb in directory
-        if not os.path.isfile('bios.gb'):
+        if not os.path.isfile('./roms/bios.gb'):
             log.critical('no bios file')
             exit()
-        with open('bios.gb', 'rb') as f:
+        with open('./roms/bios.gb', 'rb') as f:
             self.bios = bytearray(f.read())
         print(hex(self.bios[0]))
 
@@ -162,8 +162,6 @@ class Memory:
         # for test roms
         if address == 0xff01:
             print(chr(byte), end='')
-        if address == 0xff40:
-            log.debug(hex(byte))
 
         if address < 0:
             log.error('writing to negative address!')
