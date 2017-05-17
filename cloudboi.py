@@ -11,7 +11,7 @@ logging.disable(level=logging.CRITICAL)
 async def gameboy(websocket, path):
     print(path)
     gb = Pyboi()
-    gb.load_rom('tetris.gb')
+    gb.load_rom('roms/tetris.gb')
     while True:
         message = gb.get_boot_frame()
         await websocket.send(bytes(message))
