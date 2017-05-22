@@ -93,8 +93,8 @@ class Z80():
         self.SP = self.load_vals.SP
         self.flags = Enum('Flags', 'Z N H C')
         #pc/sp
-        self.pc = 0#0x100
-        self.sp = 0#0xfffe
+        self.pc =0x100
+        self.sp =0xfffe
         self.mem = mem
         self.opcodes = {
             0xcb: lambda: self.extended_opcode(),
@@ -238,7 +238,7 @@ class Z80():
             0x9e: lambda: self.sub_a_n(self.HL, sub_carry=True),
             0xa7: lambda: self.and_n(self.A),
             0xa0: lambda: self.and_n(self.B),
-            0xa1: lambda: self.and_n(self.c),
+            0xa1: lambda: self.and_n(self.C),
             0xa2: lambda: self.and_n(self.D),
             0xa3: lambda: self.and_n(self.E),
             0xa4: lambda: self.and_n(self.H),
@@ -268,7 +268,7 @@ class Z80():
             0xb9: lambda: self.cp_n(self.C),
             0xba: lambda: self.cp_n(self.D),
             0xbb: lambda: self.cp_n(self.E),
-            0xbc: lambda: self.cp_n(self.F),
+            0xbc: lambda: self.cp_n(self.H),
             0xbd: lambda: self.cp_n(self.L),
             0xbe: lambda: self.cp_n(self.HL),
             0xfe: lambda: self.cp_n(self.N),
@@ -1156,6 +1156,7 @@ class Z80():
             self.set_flag(self.flags.H)
         if a_reg < val + carry_bit:
             self.set_flag(self.flags.C)
+        self.set_flag(self.flags.N)
 
         return 8 if src == self.N or src == self.HL else 4
 
