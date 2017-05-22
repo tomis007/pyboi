@@ -1653,9 +1653,11 @@ class Z80():
         self.reset_flags()
         if msb == 1:
             self.set_flag(self.flags.C)
+        if data == 0:
+            self.set_flag(self.flags.Z)
 
         if src == self.HL:
-            self.mem.write(data, self.get_reg(self.H, self.L))
+            self.mem.write(data & 0xff, self.get_reg(self.H, self.L))
             return 16
         else: 
             self.reg[src] = data & 0xff
@@ -1680,13 +1682,16 @@ class Z80():
         else: 
             data = self.reg[src]
 
-        data = self.reg[self.A]
-        data <<= 1
-        if self.flag_set(self.flags.C):
-            data |= 1 # set lsb to C
+        msb = ((data & 0x80) >> 7) & 1
+        carry_in = 1 if self.flag_set(self.flags.C) else 0
+
+        data = (data << 1 | carry_in) & 0xff
+
         self.reset_flags()
-        if data & 0x100 == 0x100:
+        if msb == 1:
             self.set_flag(self.flags.C)
+        if data == 0:
+            self.set_flag(self.flags.Z)
 
         if src == self.HL:
             self.mem.write(data, self.get_reg(self.H, self.L))
@@ -2029,7 +2034,7 @@ class Z80():
             data |= bit7
         else:
             data >>= 1
-            data &= 0x3f
+            data &= 0x7f
 
         self.reset_flags()
         if data == 0:
