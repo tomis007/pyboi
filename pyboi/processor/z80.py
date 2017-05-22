@@ -93,8 +93,8 @@ class Z80():
         self.SP = self.load_vals.SP
         self.flags = Enum('Flags', 'Z N H C')
         #pc/sp
-        self.pc =0x100
-        self.sp =0xfffe
+        self.pc = 0#x100
+        self.sp = 0#xfffe
         self.mem = mem
         self.opcodes = {
             0xcb: lambda: self.extended_opcode(),
@@ -236,6 +236,7 @@ class Z80():
             0x9c: lambda: self.sub_a_n(self.H, sub_carry=True),
             0x9d: lambda: self.sub_a_n(self.L, sub_carry=True),
             0x9e: lambda: self.sub_a_n(self.HL, sub_carry=True),
+            0xde: lambda: self.sub_a_n(self.N, sub_carry=True),
             0xa7: lambda: self.and_n(self.A),
             0xa0: lambda: self.and_n(self.B),
             0xa1: lambda: self.and_n(self.C),
@@ -330,7 +331,16 @@ class Z80():
             0xc8: lambda: self.ret_cc(self.flags.N, True),
             0xd0: lambda: self.ret_cc(self.flags.C, False),
             0xd8: lambda: self.ret_cc(self.flags.C, True),
-            0x10: lambda: self.stop()
+            0x10: lambda: self.stop(),
+            0xc7: lambda: self.restart(0x00),
+            0xcf: lambda: self.restart(0x08),
+            0xd7: lambda: self.restart(0x10),
+            0xdf: lambda: self.restart(0x18),
+            0xe7: lambda: self.restart(0x20),
+            0xef: lambda: self.restart(0x28),
+            0xf7: lambda: self.restart(0x30),
+            0xff: lambda: self.restart(0x38),
+            0xfb: lambda: self.enable_interrupts()
         }
         self.ext_opcodes = {
             0x3f: lambda: self.srl_n(self.A, False),
@@ -675,6 +685,7 @@ class Z80():
             cycles = self.opcodes[opcode]()
         except KeyError:
             log.critical('INVALID OPCODE ' + hex(opcode) + ' @ ' + hex(self.pc))
+            quit()
             cycles = 0
         if cycles == None:
             print(hex(opcode))
@@ -695,6 +706,7 @@ class Z80():
             cycles = self.ext_opcodes[opcode]()
         except KeyError:
             log.critical('EXTENDED INVALID OPCODE ' + hex(opcode) + ' @ ' + hex(self.pc))
+            quit()
             cycles = 0
         return cycles
 
@@ -1289,12 +1301,13 @@ class Z80():
         if src == self.HL:
             val = self.mem.read(self.get_reg(self.H, self.L))
             old_val = val
-            self.mem.write(val + 1, self.get_reg(self.H, self.L))
+            self.mem.write((val + 1) & 0xff, self.get_reg(self.H, self.L))
         else: # src is index
             old_val = self.reg[src]
             val = (self.reg[src] + 1) & 0xff
             self.reg[src] = val
 
+        #TODO clean 
         self.set_flag(self.flags.Z) if val == 0 else self.reset_flag(self.flags.Z)
         self.reset_flag(self.flags.N)
         self.set_flag(self.flags.H) if old_val & 0xf == 0xf else self.reset_flag(self.flags.H)
@@ -1321,7 +1334,7 @@ class Z80():
         """
         if src == self.HL:
             val = self.mem.read(self.get_reg(self.H, self.L))
-            self.mem.write(val - 1, self.get_reg(self.H, self.L))
+            self.mem.write((val - 1) & 0xff, self.get_reg(self.H, self.L))
         else: # src is index
             val = (self.reg[src] - 1) & 0xff
             self.reg[src] = val
@@ -1512,8 +1525,6 @@ class Z80():
         int
             clock cycles taken
         """
-        print("dec adjusting!")
-        print(self.count)
         self.count += 1
         a_reg = self.reg[self.A]
         if self.flag_set(self.flags.N):
@@ -1865,8 +1876,15 @@ class Z80():
         """
         #TODO
         """
-        log.debug('DISABLE INTERRUPTS TODO')
-        return 0
+        log.critical('DISABLE INTERRUPTS TODO')
+        return 4
+
+    #TODO
+    def enable_interrupts(self):
+        """
+        """
+        log.critical('ENABLE INTERRUPTS TODO')
+        return 4
         
 
     def call(self):
@@ -2127,7 +2145,12 @@ class Z80():
             data = self.reg[src]
         data = self.set_bit(data, bit, new_bit)
 
-        return 8 if src == self.HL else 4
+        if src == self.HL:
+            self.mem.write(data, self.get_reg(self.H, self.L))
+            return 8
+        else:
+            self.reg[src] = data
+            return 4
 
     def set_bit(self, num, bit, new_bit):
         """
@@ -2149,6 +2172,16 @@ class Z80():
         False if 0
         """
         return ((num >> bit) & 0x1) == 0x1
+
+
+    def restart(self, offset):
+        """
+        Pushes current address onto the stack, and then jumps to
+        0x0 + offset. 
+        """
+        self.push_pc()
+        self.pc = offset
+        return 16
     
 
                 
