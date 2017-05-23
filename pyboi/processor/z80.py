@@ -93,12 +93,13 @@ class Z80():
         self.SP = self.load_vals.SP
         self.flags = Enum('Flags', 'Z N H C')
         #pc/sp
-        self.pc = 0#x100
-        self.sp = 0#xfffe
+        self.pc = 0x100
+        self.sp = 0xfffe
         self.mem = mem
         self.opcodes = {
             0xcb: lambda: self.extended_opcode(),
             0xf3: lambda: self.disable_interrupts(),
+            0xd9: lambda: self.ret_interrupts(),
             0x00: lambda: self.NOP(),
             0x06: lambda: self.ld_byte_n(self.B),
             0x0e: lambda: self.ld_byte_n(self.C),
@@ -327,8 +328,8 @@ class Z80():
             0xd4: lambda: self.call_cc(self.flags.C, False),
             0xdc: lambda: self.call_cc(self.flags.C, True),
             0xc9: lambda: self.ret(),
-            0xc0: lambda: self.ret_cc(self.flags.N, False),
-            0xc8: lambda: self.ret_cc(self.flags.N, True),
+            0xc0: lambda: self.ret_cc(self.flags.Z, False),
+            0xc8: lambda: self.ret_cc(self.flags.Z, True),
             0xd0: lambda: self.ret_cc(self.flags.C, False),
             0xd8: lambda: self.ret_cc(self.flags.C, True),
             0x10: lambda: self.stop(),
@@ -680,6 +681,10 @@ class Z80():
 
         """
         opcode = self.mem.read(self.pc)
+        #if self.count < 2000000:
+        #    print('Executing: ' + hex(opcode))
+        #    self.dump_registers()
+        self.count += 1
         self.pc += 1
         try:
             cycles = self.opcodes[opcode]()
@@ -687,8 +692,6 @@ class Z80():
             log.critical('INVALID OPCODE ' + hex(opcode) + ' @ ' + hex(self.pc))
             quit()
             cycles = 0
-        if cycles == None:
-            print(hex(opcode))
         return cycles
 
     def extended_opcode(self):
@@ -941,7 +944,8 @@ class Z80():
         H/C - Set/Reset according to operation
         """
         #interpret as signed byte
-        n = c_int8(self.mem.read(self.sp)).value
+        n = c_int8(self.mem.read(self.pc)).value
+        self.pc += 1
         self.set_reg(self.H, self.L, self.sp + n)
 
         self.reset_flags()
@@ -1300,17 +1304,25 @@ class Z80():
         """
         if src == self.HL:
             val = self.mem.read(self.get_reg(self.H, self.L))
+            #log.debug('INC HL: address:' + hex(self.get_reg(self.H, self.L)))
+            #log.debug('OLD VAL: ' + hex(val))
             old_val = val
             self.mem.write((val + 1) & 0xff, self.get_reg(self.H, self.L))
+            val = (val + 1) & 0xff
+            #log.debug('NEW VAL: ' + hex((val + 1) & 0xff))
         else: # src is index
             old_val = self.reg[src]
             val = (self.reg[src] + 1) & 0xff
             self.reg[src] = val
 
-        #TODO clean 
-        self.set_flag(self.flags.Z) if val == 0 else self.reset_flag(self.flags.Z)
+        self.reset_flag(self.flags.Z)
+        if val == 0:
+            self.set_flag(self.flags.Z)
         self.reset_flag(self.flags.N)
-        self.set_flag(self.flags.H) if old_val & 0xf == 0xf else self.reset_flag(self.flags.H)
+
+        self.reset_flag(self.flags.H)
+        if old_val & 0xf == 0xf:
+            self.set_flag(self.flags.H)
 
         return 12 if src == self.HL else 4
 
@@ -1335,6 +1347,7 @@ class Z80():
         if src == self.HL:
             val = self.mem.read(self.get_reg(self.H, self.L))
             self.mem.write((val - 1) & 0xff, self.get_reg(self.H, self.L))
+            val = (val - 1) & 0xff
         else: # src is index
             val = (self.reg[src] - 1) & 0xff
             self.reg[src] = val
@@ -1481,6 +1494,8 @@ class Z80():
         if self.flag_set(flag) == isSet:
             return self.jump_n() if immmediate_jump else self.jump_nn()
 
+        if not immmediate_jump:
+            self.pc += 1 #two byte jump address so skip it
         self.pc += 1
         return 12
 
@@ -1518,33 +1533,41 @@ class Z80():
         N - Not affected
         H - Reset
         C - Set or reset
-        referenced: https://github.com/Dooskington/gamelad
+        referenced GB programming manual page 110 and
+        github.com/gekkio/mooneye-gb
 
         Returns
         -------
         int
             clock cycles taken
         """
-        self.count += 1
+        carry = False
         a_reg = self.reg[self.A]
-        if self.flag_set(self.flags.N):
+        if not self.flag_set(self.flags.N):
+            if self.flag_set(self.flags.C) or a_reg > 0x99:
+                a_reg += 0x60
+                carry = True
+                a_reg &= 0xff
             if self.flag_set(self.flags.H) or a_reg & 0x0f > 0x09:
                 a_reg += 0x06
-            if self.flag_set(self.flags.C) or a_reg > 0x9f:
-                a_reg += 0x06
-        else:
-            if self.flag_set(self.flags.H):
-                a_reg = (a_reg - 0x06) & 0xff
-            if self.flag_set(self.flags.C):
-                a_reg -= 0x60
-        if a_reg & 0x100 == 0x100:
-            self.set_flag(self.flags.C)
+                a_reg &= 0xff
+        elif self.flag_set(self.flags.C):
+            carry = True
+            a_reg += 0x9a if self.flag_set(self.flags.H) else 0xa0
+            a_reg &= 0xff
+        elif self.flag_set(self.flags.H):
+            a_reg += 0xfa
+            a_reg &= 0xff
 
-        a_reg &= 0xff
         self.reset_flag(self.flags.H)
+
         self.reset_flag(self.flags.Z)
         if a_reg == 0:
             self.set_flag(self.flags.Z)
+
+        self.reset_flag(self.flags.C)
+        if carry:
+            self.set_flag(self.flags.C)
 
         self.reg[self.A] = a_reg
         return 4
@@ -1869,6 +1892,7 @@ class Z80():
         """
         self.pc += 1
         log.debug("IMPLEMENT STOP")
+        log.critical(str(self.count))
         return 0
 
     #TODO
@@ -1876,14 +1900,14 @@ class Z80():
         """
         #TODO
         """
-        log.critical('DISABLE INTERRUPTS TODO')
+        #log.critical('DISABLE INTERRUPTS TODO')
         return 4
 
     #TODO
     def enable_interrupts(self):
         """
         """
-        log.critical('ENABLE INTERRUPTS TODO')
+        #log.critical('ENABLE INTERRUPTS TODO')
         return 4
         
 
@@ -1941,7 +1965,7 @@ class Z80():
             cycles taken
         """
         if self.flag_set(flag) == isSet:
-            return 4 + self.ret()
+            return 12 + self.ret()
         else:
             return 8
 
@@ -2182,6 +2206,14 @@ class Z80():
         self.push_pc()
         self.pc = offset
         return 16
+    
+    #TODO
+    def ret_interrupts(self):
+        """
+        Returns and enables interrupts
+        """
+        return self.ret()
+
     
 
                 
