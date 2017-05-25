@@ -1,5 +1,6 @@
 from .rambank import RAMBank
 import logging
+from enum import Enum
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(name='mbc1')
 
@@ -33,6 +34,10 @@ class MBC1:
         self.ram = RAMBank(cartridge[0x149])
         self.cur_rom = 1
         self.cur_ram = 0
+        self.modes = Enum('BankMode', 'ROM RAM')
+        self.mode = self.modes.ROM
+        self.ram_enabled = False
+
 
     def read_byte(self, address):
         """
@@ -74,8 +79,31 @@ class MBC1:
             to write to
         """
         if address < 0x8000:
-            #TODO
-            log.critical('ROM BANKING NOT IMPLEMENTED')
+            if address < 0x2000:
+                #enable/disable ram register
+                if byte & 0xa == 0xa:
+                    self.ram_enabled = True
+                else:
+                    self.ram_enabled = False
+                #TODO pass to rambank
+                log.critical('RAM BANKING NOT IMPLEMENTED')
+            elif address < 0x4000:
+                #rom bank number, lower 5 bits
+                self.cur_rom &= 0xe0
+                self.cur_rom |= (0x1 | (byte & 0x1f))
+            elif address < 0x6000:
+                # ram bank num or upper bits of rom bank #
+                if self.mode == self.modes.RAM:
+                    self.cur_ram = byte & 0x3
+                else:
+                    self.cur_rom &= 0x1f
+                    self.cur_rom |= (byte & 0x3) << 5
+            else: # address < 0x8000
+                #rom/ram mode select
+                if byte == 0x0:
+                    self.mode = self.modes.ROM
+                elif byte == 0x1:
+                    self.mode = self.modes.RAM
         elif address < 0xfdff:
             self.ram.write_byte(byte, address)
         else:
