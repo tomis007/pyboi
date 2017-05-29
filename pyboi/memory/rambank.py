@@ -52,11 +52,14 @@ class RAMBank:
             return self.vram[address - 0x8000]
         elif address < 0xc000:
             if self.extram == None:
+                log.critical(hex(address))
                 log.critical('Invalid read from nonexistant external ram!')
             else:
                 return self.extram[address - 0xa000]
         elif address < 0xe000:
             return self.wram[address - 0xc000]
+        else:
+            log.error('Invalid read from ram')
 
     def write_byte(self, byte, address):
         """
@@ -77,4 +80,6 @@ class RAMBank:
             log.critical('not implemented ram banking!')
         elif address < 0xe000:
             self.wram[address - 0xc000] = byte & 0xff
+        else:
+            log.error('invalid write to ram')
 

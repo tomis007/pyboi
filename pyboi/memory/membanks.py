@@ -28,11 +28,11 @@ class MemBanks:
         if cartridge[0x147] == 0x0:
             self.bank = MBC0(cartridge)
             log.info("MBC0")
-        elif cartridge[0x147] == 0x1:
+        elif cartridge[0x147] >= 0x1 and cartridge[0x147] <= 0x3:
             self.bank = MBC1(cartridge)
             log.info("MBC1")
         else:
-            log.critical('MBC NOT IMPLEMENTED')
+            log.critical('MBC NOT IMPLEMENTED: '  + str(cartridge[0x147]))
             quit() #just stop
 
     def read(self, address):
