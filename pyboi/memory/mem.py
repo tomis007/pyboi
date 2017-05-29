@@ -41,7 +41,6 @@ class Memory:
             exit()
         with open('./roms/bios.gb', 'rb') as f:
             self.bios = bytearray(f.read())
-        print(hex(self.bios[0]))
 
     def load_rom(self, rom):
         """
@@ -63,7 +62,7 @@ class Memory:
         # cleaner to not use exception handling
         if not os.path.isfile(rom):
             log.critical('rom file can not be opened')
-            return False
+            quit()
         with open(rom, 'rb') as f:
             # this puts entire rom in RAM, but
             # roms are quite small
@@ -124,8 +123,10 @@ class Memory:
         elif address < 0xff00:
             log.error('reading from invalid address')
             log.error(hex(address))
+        elif address == 0xff00:
+            return self.get_input_state()
         elif address < 0xff80:
-            return self.regio[address - 0xff80]
+            return self.regio[address - 0xff00]
         elif address <= 0xffff:
             return self.hram[address - 0xff80]
 
@@ -160,8 +161,8 @@ class Memory:
 
         """
         # for test roms
-        if address == 0xff01:
-            print(chr(byte), end='')
+        #if address == 0xff01:
+            #print(chr(byte), end='', flush=True)
 
         if address < 0:
             log.error('writing to negative address!')
@@ -172,7 +173,8 @@ class Memory:
         elif address < 0xfea0:
             self.oam[address - 0xfe00] = byte & 0xff
         elif address < 0xff00:
-            log.error('writing to invalid address')
+            # not usable
+            return
         elif address < 0xff80:
             self.reg_write(byte, address)
         elif address < 0xffff:
@@ -192,7 +194,14 @@ class Memory:
             address to write to
 
         """
-        self.regio[address - 0xff00] = byte & 0xff
+        if address == 0xff00:
+            self.regio[0] |= (byte & 0xf0)
+        if address == 0xff44:
+            self.regio[0x44] = 0
+        elif address == 0xff46:
+            log.error('DMA TRANSFER')
+        else:
+            self.regio[address - 0xff00] = byte & 0xff
 
     def set_bios_mode(self, val):
         """
@@ -206,5 +215,20 @@ class Memory:
         
         """
         self.bios_mode = val
+
+    def inc_scanline(self):
+        """ Increment scanline register @ 0xff44"""
+        self.regio[0x44] += 1
+
+    def set_scanline(self, val):
+        """ Set scanline register @ 0xff44 to val """
+        self.regio[0x44] = val
+
+    def get_scanline(self):
+        return self.regio[0x44]
+
+    #TODO
+    def get_input_state(self):
+        return self.regio[0] | 0xf
 
 
