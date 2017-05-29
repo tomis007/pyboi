@@ -65,17 +65,43 @@ class Pyboi:
         self.mem.set_bios_mode(True)
         for _ in range(9000000):
             cycles = self.z80.execute_boot_opcode()
-            self.gpu.update_graphics(cycles)
+            #self.gpu.update_graphics(cycles)
         self.mem.set_bios_mode(False)
+
+    def init_boot(self):
+        """
+        Sets up to run the bootstrap "bios".
+        """
+        self.z80.init_boot()
 
     def get_boot_frame(self):
         """
         Runs enough clock cycles to get one frame.
+        ...
+        Returns
+        -------
+        bytearray object representing the frame
         """
         self.mem.set_bios_mode(True)
         count = 0
         while count < 70224:
             cycles = self.z80.execute_boot_opcode()
+            self.gpu.update_graphics(cycles)
+            count += cycles
+        return self.gpu.get_frame_buffer()
+        self.mem.set_bios_mode(False)
+
+    def get_frame(self):
+        """
+        Runs enough clock cycles to get one frame.
+        ...
+        Returns
+        -------
+        bytearray object representing the frame
+        """
+        count = 0
+        while count < 70224:
+            cycles = self.z80.execute_opcode()
             self.gpu.update_graphics(cycles)
             count += cycles
         return self.gpu.get_frame_buffer()
