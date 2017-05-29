@@ -1,5 +1,7 @@
 from enum import Enum
+import pdb
 from ctypes import c_int8
+import drawille
 import logging
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(name='gpu')
@@ -7,7 +9,7 @@ log = logging.getLogger(name='gpu')
 class GPU:
     """
     GPU for the gameboy
-    NOTE: referenced https://github.com/zeta0134/luagb
+    thanks to: https://github.com/zeta0134/luagb
 
     Attributes
     ----------
@@ -21,7 +23,6 @@ class GPU:
     """
     #TODO: The scanline incrementing is confusing...
     def __init__(self, memory):
-        self.clock = 0
         self.mode_clock = 0
         self.gb_screen = bytearray(23040)
         self.white_screen = bytearray(23040)
@@ -34,7 +35,11 @@ class GPU:
             self.modes.OR: self.o_ram,
             self.modes.LCD: self.lcd_trans
         }
-        self.scanline = 0
+        self.lcd_prev_enabled = True
+
+        #set up initial state
+        self.mem.set_scanline(0)
+        self.set_mode(self.modes.OR, 0)
 
     def update_graphics(self, cycles):
         """
@@ -46,12 +51,19 @@ class GPU:
         int cycles
             number of cycles since last call
         """
-        if self.lcd_enabled():
+        if self.lcd_enabled() and self.lcd_prev_enabled:
             self.dispatch_mode[self.mode](cycles)
+        elif self.lcd_enabled() and not self.lcd_prev_enabled:
+            # enabled LCD start in HBlank
+            self.set_mode(self.modes.HB, 0)
+            self.dispatch_mode[self.mode](cycles)
+            self.lcd_prev_enabled = True
         else:
-            # TODO CORRECT??
-            #self.set_mode(self.modes.VB, 0)
-            pass
+            # LCD is in VBlank when disabled
+            if self.mode != self.modes.VB:
+                self.mem.set_scanline(0)
+                self.set_mode(self.modes.VB, 0)
+            self.lcd_prev_enabled = False
 
     def h_blank(self, cycles):
         """
@@ -60,12 +72,18 @@ class GPU:
         """
         self.mode_clock += cycles
         if self.mode_clock >= 204:
-            if self.scanline < 144:
+            self.mem.inc_scanline()
+            if self.mem.get_scanline() < 144:
+                # back to mode 2
                 self.set_mode(self.modes.OR, self.mode_clock % 204)
             else:
-                self.mem.write(self.scanline, 0xff44)
+                # time for Vertical Blank, signal request
+                ir = self.mem.read(0xff0f)
+                ir |= 1 
+                self.mem.write(ir, 0xff0f)
                 self.set_mode(self.modes.VB, self.mode_clock % 204)
 
+    #TODO memory access
     def v_blank(self, cycles):
         """
         Mode 1 of drawing process, Vertical Blank.
@@ -73,13 +91,14 @@ class GPU:
         RAM and OAM.
         """
         self.mode_clock += cycles
-        if self.mode_clock >= 456:
-            if self.scanline >= 152:
-                self.set_mode(self.modes.HB, self.mode_clock % 456)
-                self.scanline = 0
+        #if turning the screen back on
+        if self.mode_clock >= 456 or (self.mem.get_scanline() == 153 and self.mode_clock >= 64):
+            self.mem.inc_scanline()
+            if self.mem.get_scanline() > 153:
+                # Go to OR mode on line 0
+                self.mem.set_scanline(0)
+                self.set_mode(self.modes.OR, 0)
             else:
-                self.scanline += 1
-                self.mem.write(self.scanline, 0xff44)
                 self.set_mode(self.modes.VB, self.mode_clock % 456) 
 
     #TODO block OAM memory access
@@ -88,22 +107,24 @@ class GPU:
         Mode 2 of the screen draw process, reading from OAM memory.
         CPU cannot access OAM memory during.
         """
-        self.mem.write(self.scanline, 0xff44)
         self.mode_clock += cycles
+        # 80 cycles for OAM mode 
         if self.mode_clock >= 80:
             self.set_mode(self.modes.LCD, self.mode_clock % 80)
         
     #TODO block OAM/VRAM access
     def lcd_trans(self, cycles):
         """
-        Mode 3 of the screen drawing process, reading from OAM/VRAM.
-        After this mode is complete the current scanline is drawn
+        Mode 3 of the screen drawing process, LCD controller is reading
+        from OAM/VRAM. After this mode is complete the current 
+        scanline is drawn.
         """
         self.mode_clock += cycles
         if self.mode_clock >= 174:
+            # enter H-Blank mode and draw line
+            self.draw_scanline(self.mem.get_scanline())
             self.set_mode(self.modes.HB, self.mode_clock % 204)
-            self.draw_scanline(self.scanline)
-            self.scanline += 1
+
 
     
     def set_mode(self, mode, cycles):
@@ -123,17 +144,15 @@ class GPU:
 
         #change registers in mem
         flag = self.mem.read(0xff41)
-        next_mode = 0
-        if mode == self.modes.HB:
-            next_mode = 0x0
-        elif mode == self.modes.VB:
-            next_mode = 0x1
-        elif mode == self.modes.OR:
-            next_mode = 0x2
-        else: # mode == self.modes.LCD
-            next_mode = 0x3
         flag &= 0xfc
-        flag |= next_mode
+        if mode == self.modes.HB:
+            flag |= 0x0
+        elif mode == self.modes.VB:
+            flag |= 0x1
+        elif mode == self.modes.OR:
+            flag |= 0x2
+        else: # mode == self.modes.LCD
+            flag |= 0x3
         self.mem.write(flag, 0xff41)
 
        
@@ -165,7 +184,6 @@ class GPU:
         if not self.bit_set(lcd_control, 0):
             return #bg turned off
 
-        #print("drawing bg scanline: " + str(scanline))
         scY = self.mem.read(0xff42)
         scX = self.mem.read(0xff43)
         tile_select = 0x8000 if self.bit_set(lcd_control, 4) else 0x9000
@@ -173,8 +191,7 @@ class GPU:
 
         y_offset = (((scY + scanline) // 8) % 32) * 32
         tile_line = (scY + scanline) % 8
-
-        for x_tile in range(21):
+        for x_tile in range(20):
             x_offset = (x_tile + (scX // 8)) % 32
             tile_index = self.mem.read(tile_map + y_offset + x_offset)
             if tile_select == 0x9000:
@@ -182,12 +199,14 @@ class GPU:
             address = tile_select + (16 * tile_index)
             x_shift = scX % 8
             if x_tile == 0 and x_shift != 0:
-                self.draw_bg_tile(address, tile_line, 0, scanline, x_shift, 7)
+                self.draw_bg_tile(address, tile_line, 
+                                  0, scanline, x_shift, 7)
             elif x_tile == 20 and x_shift != 0:
-                self.draw_bg_tile(address, tile_line, 160 - x_shift, scanline, 0, x_shift - 1)
+                self.draw_bg_tile(address, tile_line, 
+                                  160 - x_shift, scanline, 0, x_shift - 1)
             else:
-                self.draw_bg_tile(address, tile_line, (x_tile * 8) - x_shift, scanline, 0, 7)
-                
+                self.draw_bg_tile(address, tile_line, 
+                                 (x_tile * 8) - x_shift, scanline, 0, 7)
 
     def draw_bg_tile(self, address, line, x, y, pix_start, pix_end):
         """
@@ -209,14 +228,64 @@ class GPU:
         pix_end : int
             last pixel in the block to draw
         """
+        #if address != 0x8000:
+            #print('drawing tile: ' + hex(address) + '  line: ' + str(line))
+            #pdb.set_trace()
         block_one = self.mem.read(address + (2 * line))
         block_two = self.mem.read(address + (2 * line) + 1)
-
+        
         #TODO check if loops correctly
-        for pixel in range(pix_start, pix_end):
+        for pixel in range(pix_start, pix_end + 1):
             color = self.get_color(block_one, block_two, pixel)
             x_pix = (x + pixel - pix_start) % 160
             self.draw_to_buffer(x_pix, y, color)
+
+
+
+
+    def dump_tile(self, address):
+        c = drawille.Canvas()
+        line1 = []
+        line2 = []
+        for x in range(8):
+            line1.append(self.mem.read(address + (2 * x)))
+            line2.append(self.mem.read(address + (2 * x) + 1))
+        print('Tile Data @' + hex(address))
+        c.set(0,0)
+        c.set(10,10)
+        for i,line in enumerate(line1):
+            for pixel in range(8):
+                if self.get_color(line, line2[i], pixel) != 0:
+                    c.set(1 + pixel,1 + i)
+        print(c.frame())        
+
+        ##for index, data in enumerate(zip(line1, line2)):
+        #    print(bin(data[0]))
+        #    if data[1] != 0:
+        #        print(bin(data[1]))
+        #pdb.set_trace()
+
+    def dump_tile_to_screen(self, address, x_start):
+        line1 = []
+        line2 = []
+        for x in range(8):
+            line1.append(self.mem.read(address + (2 * x)))
+            line2.append(self.mem.read(address + (2 * x) + 1))
+        for i,line in enumerate(line1):
+            for pixel in range(8):
+                if self.get_color(line, line2[i], pixel) != 0:
+                    self.draw_to_buffer(x_start + i, pixel, 1)
+        c = drawille.Canvas()
+        c.clear()
+        c.set(0,0)
+        c.set(160,144)
+        for row in range(144):
+            for col in range(160):
+                if self.gb_screen[(row * 160) + col] != 0:
+                    c.set(col, row)
+        print(c.frame())
+
+
 
     def draw_to_buffer(self, col, row, color):
         """
