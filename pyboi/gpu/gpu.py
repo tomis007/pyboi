@@ -73,15 +73,24 @@ class GPU:
         self.mode_clock += cycles
         if self.mode_clock >= 204:
             self.mem.inc_scanline()
+            # check for LYC compare
+            if self.mem.read(0xff45) == self.mem.get_scanline():
+                self.mem.set_lcd_coincidence(1)
+                # check for interrupt enable
+                if self.mem.read(0xff41) & 0x40 != 0:
+                    self.mem.request_interrupt(1)
+            else:
+                self.mem.set_lcd_coincidence(0)
+
+
             if self.mem.get_scanline() < 144:
                 # back to mode 2
                 self.set_mode(self.modes.OR, self.mode_clock % 204)
             else:
                 # time for Vertical Blank, signal request
-                ir = self.mem.read(0xff0f)
-                ir |= 1 
-                self.mem.write(ir, 0xff0f)
+                self.mem.request_interrupt(0)
                 self.set_mode(self.modes.VB, self.mode_clock % 204)
+
 
     #TODO memory access
     def v_blank(self, cycles):
@@ -141,19 +150,31 @@ class GPU:
         """
         self.mode_clock = cycles
         self.mode = mode
+        req_interrupt = False
 
         #change registers in mem
         flag = self.mem.read(0xff41)
         flag &= 0xfc
         if mode == self.modes.HB:
             flag |= 0x0
+            if flag & 0x8 != 0:
+                req_interrupt = True 
         elif mode == self.modes.VB:
             flag |= 0x1
+            if flag & 0x10 != 0:
+                req_interrupt = True
         elif mode == self.modes.OR:
             flag |= 0x2
+            if flag & 0x20 != 0:
+                req_interrupt = True
         else: # mode == self.modes.LCD
             flag |= 0x3
-        self.mem.write(flag, 0xff41)
+        self.mem.lcd_stat_write(flag)
+
+        # check to see if request interrupt
+        if req_interrupt:
+            self.mem.request_interrupt(1)
+
 
        
     def draw_scanline(self, scanline):
