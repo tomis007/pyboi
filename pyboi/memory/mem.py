@@ -35,6 +35,7 @@ class Memory:
         self.regio = bytearray(0x80)
         self.hram = bytearray(0x80)
         self.bios_mode = False #default
+        self.interrupt_enable = 0
         #requires bios.gb in directory
         if not os.path.isfile('./roms/bios.gb'):
             log.critical('no bios file')
@@ -68,7 +69,6 @@ class Memory:
             # roms are quite small
             self.membanks = MemBanks(bytearray(f.read()))
             log.info('LOADING: ' + rom)
-            log.debug('loaded membank')
         return True
 
     def read_bios(self, address):
@@ -127,8 +127,10 @@ class Memory:
             return self.get_input_state()
         elif address < 0xff80:
             return self.regio[address - 0xff00]
-        elif address <= 0xffff:
+        elif address < 0xffff:
             return self.hram[address - 0xff80]
+        elif address == 0xffff:
+            return self.interrupt_enable
 
     def read_word(self, address):
         """
@@ -161,9 +163,8 @@ class Memory:
 
         """
         # for test roms
-        #if address == 0xff01:
-            #print(chr(byte), end='', flush=True)
-
+        if address == 0xff01:
+            print(chr(byte), end='', flush=True)
         if address < 0:
             log.error('writing to negative address!')
         elif address < 0xe000:
@@ -179,6 +180,9 @@ class Memory:
             self.reg_write(byte, address)
         elif address < 0xffff:
             self.hram[address - 0xff80] = byte & 0xff
+        elif address == 0xffff:
+            self.interrupt_enable = byte & 0xff
+
 
     # TODO
     def reg_write(self, byte, address):
@@ -195,13 +199,33 @@ class Memory:
 
         """
         if address == 0xff00:
+            #IO PORTS TODO INPUT
             self.regio[0] |= (byte & 0xf0)
-        if address == 0xff44:
+        elif address == 0xff04:
+            # divider, reset on write
+            self.regio[0x4] = 0
+        elif address == 0xff41:
+            #LCD STAT
+            byte &= 0xf8
+            self.regio[0x41] &= 0x7
+            self.regio[0x41] |= byte
+            self.regio[0x41] |= 0x80
+        elif address == 0xff44:
             self.regio[0x44] = 0
         elif address == 0xff46:
-            log.error('DMA TRANSFER')
+            dma_addr = byte * 0x100
+            for i in range(0xa0):
+                self.oam[i] = self.read(dma_addr + i)
         else:
             self.regio[address - 0xff00] = byte & 0xff
+
+    def lcd_stat_write(self, byte):
+        """
+        Writes the mode to the LCD status register.
+        """
+        self.regio[0x41] &= 0xfc
+        self.regio[0x41] |= (byte & 0x3)
+
 
     def set_bios_mode(self, val):
         """
@@ -215,6 +239,27 @@ class Memory:
         
         """
         self.bios_mode = val
+
+    def request_interrupt(self, int_id):
+        """
+        Requests interrupt int_id.
+        0 - VBlank
+        1 - LCD STAT
+        2 - Timer
+        3 - Serial
+        4 - JoyPad
+        """
+        ir = self.regio[0xf]
+        ir |= 1 << int_id
+        self.regio[0xf] = ir
+
+    def set_lcd_coincidence(self, bit):
+        """
+        Sets the STAT register coincidence bit to bit
+        """
+        bit &= 1
+        self.regio[0x41] &= ~0x4 & 0xff
+        self.regio[0x41] |= bit
 
     def inc_scanline(self):
         """ Increment scanline register @ 0xff44"""
@@ -230,5 +275,22 @@ class Memory:
     #TODO
     def get_input_state(self):
         return self.regio[0] | 0xf
+
+    def inc_div(self):
+        """
+        Increments the div timer by 1.
+        """
+        self.regio[0x4] = (1 + self.regio[0x4]) & 0xff
+
+    def inc_tima(self):
+        """
+        Increments the tima register, requests an interrupt if needed.
+        """
+        new_val = self.regio[0x5] + 1
+        self.regio[0x5] = new_val & 0xff
+        if new_val > 0xff:
+            # overflow
+            self.regio[0x5] = self.regio[0x6]
+            self.request_interrupt(2)
 
 
