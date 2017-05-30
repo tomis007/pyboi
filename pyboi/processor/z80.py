@@ -95,8 +95,13 @@ class Z80():
         #pc/sp
         self.pc = 0x100
         self.sp = 0xfffe
+        self.interrupt_enable = False
         self.mem = mem
+        #timers
+        self.div_clock = 0
+        self.tima_clock = 0
         self.opcodes = {
+            0x76: lambda: self.halt(),
             0xcb: lambda: self.extended_opcode(),
             0xf3: lambda: self.disable_interrupts(),
             0xd9: lambda: self.ret_interrupts(),
@@ -637,6 +642,14 @@ class Z80():
         session.add(cpu_state)
         session.commit()
 
+
+    def init_boot(self):
+        """
+        Initializes the cpu for running the bootstrap "bios".
+        """
+        self.pc = 0
+        self.sp = 0
+
     def execute_boot_opcode(self, num=1):
         """
         Executes an opcode of the booting sequence, takes
@@ -681,17 +694,14 @@ class Z80():
 
         """
         opcode = self.mem.read(self.pc)
-        #if self.count < 2000000:
-        #    print('Executing: ' + hex(opcode))
-        #    self.dump_registers()
-        self.count += 1
         self.pc += 1
         try:
             cycles = self.opcodes[opcode]()
         except KeyError:
             log.critical('INVALID OPCODE ' + hex(opcode) + ' @ ' + hex(self.pc))
             quit()
-            cycles = 0
+        cycles += self.check_interrupts()
+        self.update_timers(cycles)
         return cycles
 
     def extended_opcode(self):
@@ -712,6 +722,77 @@ class Z80():
             quit()
             cycles = 0
         return cycles
+
+
+    def check_interrupts(self):
+        """
+        Checks to see if any interrupts need to be serviced
+        """
+        if not self.interrupt_enable:
+            return 0
+        ie = self.mem.read(0xffff)
+        ir = self.mem.read(0xff0f)
+        for bit in range(5):
+            if self.is_set(ie, bit) and self.is_set(ir, bit):
+                self.push_pc()
+                self.pc = 0x40 + (bit << 3)
+                ir &= ~(1 << bit) 
+                self.mem.write(ir & 0xff, 0xff0f)
+                self.interrupt_enable = False
+                return 20
+        return 0
+
+
+
+
+    def update_timers(self, cycles):
+        """
+        Updates the timers, requests interrupts if needed.
+        """
+        self.div_clock += cycles
+        if self.div_clock >= 256:
+            self.div_clock = self.div_clock % 256
+            self.mem.inc_div()
+        tima_ctrl = self.mem.read(0xff07)
+        if tima_ctrl & 0x4 == 0:
+            self.tima_clock = 0
+        else:
+            self.tima_clock += cycles 
+            rate = self.get_tima_rate(tima_ctrl)
+            if self.tima_clock >= rate:
+                self.tima_clock = self.tima_clock % rate
+                self.mem.inc_tima()
+        
+        
+    def get_tima_rate(self, ctrl):
+        """
+        Gets the increment rate from tima ctrl.
+        """
+        speed = ctrl & 0x3
+        if speed == 0:
+            return 1024
+        elif speed == 1:
+            return 16
+        elif speed == 2:
+            return 64
+        else:
+            return 256
+
+
+    def request_interrupt(self, num):
+        """
+        Request an interrupt to be serviced by cpu
+        num == 0 - VBlank
+               1 - LCD STAT
+               2 - Timer
+               3 - Serial
+               4 - Joypad
+        """
+        ir = self.mem.read(0xff0f)
+        ir |= 1 << num
+        self.mem.write(ir, 0xff0f)
+
+
 
     def NOP(self):
         """ No operation """
@@ -882,7 +963,9 @@ class Z80():
         if store:
             self.mem.write(self.reg[self.A], offset + 0xff00)
         else:
+            #print('address: ' + hex(offset+ 0xff00) + '  ' + hex(self.mem.read(offset + 0xff00)))
             self.reg[self.A] = self.mem.read(offset + 0xff00)
+
         return 12
 
     def ld_nn(self, dest, set_sp=False):
@@ -1236,7 +1319,11 @@ class Z80():
             val = self.mem.read(self.get_reg(self.H, self.L))
         else: # src is index of A-L
             val = self.reg[src]
-
+#
+#        if exclusive_or:
+#            print("data: " + hex(val))
+#            print("reg a: " + hex(a_reg))
+#            print((a_reg ^ val) & 0xff)
         self.reg[self.A] = (a_reg ^ val) if exclusive_or else (a_reg | val)
         self.reg[self.A] &= 0xff
         self.reset_flags()
@@ -1885,29 +1972,20 @@ class Z80():
         return 8 if src != self.HL else 16
 
         
-
+    #TODO
     def stop(self):
-        """
-        TODO
-        """
         self.pc += 1
-        log.debug("IMPLEMENT STOP")
-        log.critical(str(self.count))
+        log.critical("IMPLEMENT STOP")
         return 0
 
     #TODO
     def disable_interrupts(self):
-        """
-        #TODO
-        """
-        #log.critical('DISABLE INTERRUPTS TODO')
+        self.interrupt_enable = False
         return 4
 
     #TODO
     def enable_interrupts(self):
-        """
-        """
-        #log.critical('ENABLE INTERRUPTS TODO')
+        self.interrupt_enable = True
         return 4
         
 
@@ -2212,8 +2290,14 @@ class Z80():
         """
         Returns and enables interrupts
         """
+        self.interrupt_enable = True
         return self.ret()
 
+    def halt(self):
+        """
+        TODO
+        """
+        return 4
     
 
                 
