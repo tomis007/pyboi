@@ -189,6 +189,71 @@ class GPU:
             scanline to draw (0-143)
         """
         self.draw_background(scanline)
+        #self.draw_window(scanline)
+        self.draw_sprites(scanline)
+
+
+
+    def draw_window(self, scanline):
+        """
+        Draws the window for the scanline
+        """
+        lcd_control = self.mem.read(0xff40)
+        if not self.bit_set(lcd_control, 5):
+            return #bg turned off
+        ##log.debug('drawing window!')
+
+
+    def draw_sprites(self, scanline):
+        """
+        Draws the sprites for the current scanline
+        """
+        lcd_control = self.mem.read(0xff40)
+        if not self.bit_set(lcd_control, 1):
+            return #bg turned off
+
+        height = 16 if self.bit_set(lcd_control, 2) else 8
+        for i in range(40):
+            offset = (39 - i) * 4
+            y = self.mem.read(0xfe00 + offset)
+            x = self.mem.read(0xfe00 + offset + 1)
+            tile_num = self.mem.read(0xfe00 + offset + 2)
+            if height == 16:
+                tile_num &= 0xfe
+            flags = self.mem.read(0xfe00 + offset + 3)
+            address = 0x8000 + (tile_num * 16)
+            if scanline >= (y - 16) and (y - 16) + height - 1 >= scanline:
+                # sprite actually on this scanline
+                self.draw_sprite_line(y - 16, x - 8, height, 
+                                      address, flags, scanline)
+
+    def draw_sprite_line(self, y, x, height, address, flags, scanline):
+        """
+        Draws the sprite for one line (if it's on the current scanline)
+        """
+        pal_addr = 0xff49 if self.bit_set(flags, 4) else 0xff48
+
+        sprite_line = height - (scanline - y)
+        if not self.bit_set(flags, 6):
+            offset = 2 * (scanline - y)
+        else:
+            offset = 2 * (sprite_line - 1)
+        byte_A = self.mem.read(address + offset)
+        byte_B = self.mem.read(address + offset + 1)
+
+        for pix in range(8):
+            #check for horiz flip
+            col_index = 7 - pix if self.bit_set(flags, 5) else pix
+            color_num = self.get_color_num(byte_A, byte_B, col_index)
+            if x + pix < 160 and x + pix >= 0 and color_num != 0:
+                pal_color = self.get_palette_color(color_num, pal_addr)
+                if not self.bit_set(flags, 7):
+                    # has priority over background just draw
+                    self.draw_to_buffer(x + pix, scanline, pal_color)
+                elif self.get_palette_color(0, 0xff47) == \
+                     self.get_buff_color(x + pix, scanline):
+                    # background is clear OK to draw
+                    self.draw_to_buffer(x + pix, scanline, pal_color)
 
 
     def draw_background(self, scanline):
@@ -249,15 +314,11 @@ class GPU:
         pix_end : int
             last pixel in the block to draw
         """
-        #if address != 0x8000:
-            #print('drawing tile: ' + hex(address) + '  line: ' + str(line))
-            #pdb.set_trace()
         block_one = self.mem.read(address + (2 * line))
         block_two = self.mem.read(address + (2 * line) + 1)
         
-        #TODO check if loops correctly
         for pixel in range(pix_start, pix_end + 1):
-            color = self.get_color(block_one, block_two, pixel)
+            color = self.get_color(block_one, block_two, pixel, 0xff47)
             x_pix = (x + pixel - pix_start) % 160
             self.draw_to_buffer(x_pix, y, color)
 
@@ -280,12 +341,6 @@ class GPU:
                     c.set(1 + pixel,1 + i)
         print(c.frame())        
 
-        ##for index, data in enumerate(zip(line1, line2)):
-        #    print(bin(data[0]))
-        #    if data[1] != 0:
-        #        print(bin(data[1]))
-        #pdb.set_trace()
-
     def dump_tile_to_screen(self, address, x_start):
         line1 = []
         line2 = []
@@ -306,8 +361,6 @@ class GPU:
                     c.set(col, row)
         print(c.frame())
 
-
-
     def draw_to_buffer(self, col, row, color):
         """
         Places color at position col,row in the screen buffer.
@@ -315,7 +368,10 @@ class GPU:
         """
         self.gb_screen[col + (row * 160)] = color
 
-    def get_color(self, block_one, block_two, pixel):
+    def get_buff_color(self, col, row):
+        return self.gb_screen[col + (row * 160)]
+
+    def get_color(self, block_one, block_two, pixel, pal_addr):
         """
         Return the color of the pixel to draw.
         For GB MODE
@@ -324,11 +380,26 @@ class GPU:
         pix = 7 - pixel
         color_num = 1 if self.bit_set(block_two, pix) else 0
         color_num = (color_num << 1) | (1 if self.bit_set(block_one, pix) else 0)
-        palette = self.mem.read(0xff47)
+        palette = self.mem.read(pal_addr)
         color = (palette >> (color_num * 2)) & 0x3
 
         return color
 
+    def get_color_num(self, block_one, block_two, pixel):
+        """
+        Translates sprite data to color num
+        """
+        pix = 7 - pixel
+        color_num = 1 if self.bit_set(block_two, pix) else 0
+        color_num = (color_num << 1) | (1 if self.bit_set(block_one, pix) else 0)
+        return color_num
+
+
+    def get_palette_color(self, color_num, palette_addr):
+        """
+        Translates color_num to a color via palette address
+        """
+        return (self.mem.read(palette_addr) >> (color_num * 2)) & 0x3
         
     def bit_set(self, data, bit):
         """
@@ -374,4 +445,7 @@ class GPU:
 
     def get_frame_buffer(self):
         """ Returns the current gb screen buffer. """
-        return self.gb_screen
+        if self.lcd_enabled():
+            return self.gb_screen
+        else:
+            return self.white_screen
