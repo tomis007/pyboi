@@ -33,6 +33,7 @@ class Memory:
         self.membanks = None
         self.oam = bytearray(0xa0)
         self.regio = bytearray(0x80)
+        self.regio[0x40] = 0x91 # DEFUALT
         self.hram = bytearray(0x80)
         self.bios_mode = False #default
         self.interrupt_enable = 0
@@ -165,6 +166,7 @@ class Memory:
         # for test roms
         if address == 0xff01:
             print(chr(byte), end='', flush=True)
+
         if address < 0:
             log.error('writing to negative address!')
         elif address < 0xe000:
