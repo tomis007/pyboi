@@ -17,8 +17,6 @@ class MBC1:
         the ROM of the entire cartridge
     cur_rom : int
         the current rom Bank selected
-    cur_ram : int
-        the current ram Bank selected
     """
     def __init__(self, cartridge):
         """
@@ -33,10 +31,8 @@ class MBC1:
         self.rom = cartridge
         self.ram = RAMBank(cartridge[0x149])
         self.cur_rom = 1
-        self.cur_ram = 0
         self.modes = Enum('BankMode', 'ROM RAM')
         self.mode = self.modes.ROM
-        self.ram_enabled = False
 
 
     def read_byte(self, address):
@@ -55,7 +51,7 @@ class MBC1:
         elif address < 0x8000:
             address -= 0x4000
             return self.rom[address + (self.cur_rom * 0x4000)]
-        elif address < 0xfdff:
+        elif address < 0xe000:
             return self.ram.read_byte(address)
         else:
             log.critical('INVALID READ AT: ' + hex(address))
@@ -82,19 +78,19 @@ class MBC1:
             if address < 0x2000:
                 #enable/disable ram register
                 if byte & 0xa == 0xa:
-                    self.ram_enabled = True
+                    self.ram.set_ext_ram_enable(True)
                 else:
-                    self.ram_enabled = False
-                #TODO pass to rambank
-                log.critical('RAM BANKING NOT IMPLEMENTED')
+                    self.ram.set_ext_ram_enable(False)
             elif address < 0x4000:
                 #rom bank number, lower 5 bits
                 self.cur_rom &= 0xe0
-                self.cur_rom |= (0x1 | (byte & 0x1f))
+                if byte == 0:
+                    byte |= 0x1 #MBC 1 translates 0 -> 1
+                self.cur_rom |=  byte & 0x1f
             elif address < 0x6000:
                 # ram bank num or upper bits of rom bank #
                 if self.mode == self.modes.RAM:
-                    self.cur_ram = byte & 0x3
+                    self.ram.set_bank_num(byte & 0x3)
                 else:
                     self.cur_rom &= 0x1f
                     self.cur_rom |= (byte & 0x3) << 5
@@ -104,7 +100,7 @@ class MBC1:
                     self.mode = self.modes.ROM
                 elif byte == 0x1:
                     self.mode = self.modes.RAM
-        elif address < 0xfdff:
+        elif address < 0xe000:
             self.ram.write_byte(byte, address)
         else:
             log.critical('INVALID WRITE TO: ' + hex(address))
