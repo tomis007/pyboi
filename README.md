@@ -1,9 +1,9 @@
-#PyBoi
+# PyBoi
 
-###ABOUT
+### ABOUT
 This is an implementation of a GB/GBC emulator in python. Currently in progress.
 
-###STATUS
+### STATUS
 STATUS: BLARGG'S CPU TESTS Passes tests: 
 * 06-ld r,r 
 * 08-misc instrs
@@ -19,7 +19,7 @@ STATUS: BLARGG'S CPU TESTS Passes tests:
 Failed tests:
 * 02-interrupts
 
-###SCREENSHOTS
+### SCREENSHOTS
 ![alt text][cpu_instr]
 ![alt text][tetris]
 ![alt text][kirby]
