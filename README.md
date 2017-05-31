@@ -46,8 +46,8 @@ To leave virtualenv
 ```
 deactivate
 ```
-[cpu_instr]: https://github.com/tomis007/pyboi/screenshots/cpu_instr.png
-[tetris]: https://github.com/tomis007/pyboi/screenshots/tetris.png
-[kirby]: https://github.com/tomis007/pyboi/screenshots/kirby.png
+[cpu_instr]: https://github.com/tomis007/pyboi/tree/master/screenshots/cpu_instrs.png
+[tetris]: https://github.com/tomis007/pyboi/tree/master/screenshots/tetris.png
+[kirby]: https://github.com/tomis007/pyboi/tree/master/screenshots/kirby.png
 
 
